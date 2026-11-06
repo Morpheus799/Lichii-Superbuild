@@ -1,5 +1,17 @@
 # Lichii Superbuild (unofficial)
 
+## Credits
+
+This build exists because of the work of:
+
+- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, Bananza page-mark batching, perf9 paths
+- [jojo-chaechae/Eglantine](https://github.com/jojo-chaechae/Eglantine) — GPU-split submit and macro hand-back fixes
+- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix
+- [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
+- [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
+- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
+- The Eglantine, Eden, yuzu and Sudachi contributors
+
 Curated performance and correctness fixes on top of
 [zortos293/Lichii](https://github.com/zortos293/Lichii) `nx2`.
 
@@ -123,13 +135,3 @@ See `tools/superbuild/README.md` for packaging notes.
 git checkout e219d24c
 git apply patches/superbuild.patch
 ```
-
-## Credits
-
-- zortos293 and the Lichii/Eden/yuzu contributors
-- Frizti
-- mja00 / Matt Artist
-- Nolar-Hack
-- Duck912
-- jojo-chaechae
-- Everyone whose fixes were ported or referenced above
