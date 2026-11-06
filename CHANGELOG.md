@@ -3,6 +3,14 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## 261106-v7
+
+- Base: `nx2` `4c173bb7` — upstream #303 opt-in desktop compatibility reports
+  and #287 Linux AppImage switch discovery, plus all earlier upstream fixes.
+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
+  superbuild fix set.
+- Windows and Linux, standard and PGO.
+
 ## 261106-v6
 
 - Base: `nx2` `588bfa61` — upstream #314 first-run performance defaults,
