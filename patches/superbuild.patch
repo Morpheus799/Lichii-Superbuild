@@ -343,10 +343,10 @@ index 0000000000..5fc95f0e90
 +git apply patches/superbuild.patch
 +```
 diff --git a/dist/nx2_switches.txt b/dist/nx2_switches.txt
-index 5c75012803..64a833a414 100644
+index 4b2d0bb14c..951bafcd58 100644
 --- a/dist/nx2_switches.txt
 +++ b/dist/nx2_switches.txt
-@@ -36,3 +36,5 @@ EDEN_NX2_FENCE_BATCH=1
+@@ -39,3 +39,5 @@ EDEN_NX2_FENCE_BATCH=1
  #EDEN_NX2_SPLIT_SKIP=1
  #EDEN_NX2_AUTO_STUB=1
  #EDEN_NX2_KEEP_ASTC=1
@@ -1959,10 +1959,10 @@ index 8ca5df2337..6bb99f0c52 100644
          LOG_INFO(HW_GPU, "Texture cache thresholds: expected {} MiB, critical {} MiB, minimum {} MiB",
                   expected_memory >> 20, critical_memory >> 20, minimum_memory >> 20);
 diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
-index e24a09d966..98c7218c93 100644
+index fac2e5cc60..dca2a94cc7 100644
 --- a/src/yuzu/main_window.cpp
 +++ b/src/yuzu/main_window.cpp
-@@ -1989,6 +1989,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
+@@ -2000,6 +2000,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
          Settings::UpdateGPUAccuracy();
          LOG_INFO(Config, "Applied recommended MKW settings after per-game configuration");
      }
@@ -1989,10 +1989,10 @@ index e24a09d966..98c7218c93 100644
  
      if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
 diff --git a/src/yuzu/main_window.h b/src/yuzu/main_window.h
-index 9e98b97ef9..a9a9016364 100644
+index 4d7a9fb1a2..57d49e83ae 100644
 --- a/src/yuzu/main_window.h
 +++ b/src/yuzu/main_window.h
-@@ -507,6 +507,8 @@ private:
+@@ -508,6 +508,8 @@ private:
      MultiplayerState* multiplayer_state = nullptr;
      bool use_recommended_mkw_settings = false;
      bool asked_recommended_mkw_settings = false;
