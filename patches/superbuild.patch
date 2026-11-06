@@ -26,10 +26,10 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..7ac2315ae1 100644
+index bc40878ce6..ff125f2910 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,46 @@
+@@ -1,11 +1,54 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -39,9 +39,18 @@ index bc40878ce6..7ac2315ae1 100644
 +checksums.
  
 -## [Unreleased]
-+## 261106-v6
++## 261106-v7
  
 -## [0.1.0]
++- Base: `nx2` `4c173bb7` — upstream #303 opt-in desktop compatibility reports
++  and #287 Linux AppImage switch discovery, plus all earlier upstream fixes.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
+ 
+-- Initial release candidate
++## 261106-v6
++
 +- Base: `nx2` `588bfa61` — upstream #314 first-run performance defaults,
 +  plus #224, #290 and #295.
 +- Ocarina of Time now asks on launch whether to use the recommended
@@ -52,8 +61,7 @@ index bc40878ce6..7ac2315ae1 100644
 +- Keeps the GPU thread wake from Shakoquo's sharkiix work and the full
 +  superbuild fix set.
 +- Windows and Linux, standard and PGO.
- 
--- Initial release candidate
++
 +## 261106-v4
 +
 +- Base: `nx2` `a7a28175` — upstream PR #224 (async native discard), #290
@@ -193,10 +201,10 @@ index 0502b3f38e..d488b8c528 100644
  On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..5fc95f0e90
+index 0000000000..5eb7e21925
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,145 @@
+@@ -0,0 +1,147 @@
 +# Lichii Superbuild (unofficial)
 +
 +## Credits
@@ -224,11 +232,13 @@ index 0000000000..5fc95f0e90
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `588bfa611be9853729682dd78416c66e8d56385a` (2026-11-06)
-+- Upstream `nx2` already contains #314 (new-user performance defaults), #224
-+  (async native discard), #273 (AMD shader typing/depth sampling), #284 (AV1
-+  in MinGW builds), #290 (worker lost-wake fix) and #295 (misaligned SSBO
-+  accesses and compute write ordering); those are not re-applied here.
++- Base commit: `4c173bb792eca0c89fb9e93e3c81122dc68f1d3e` (2026-11-06)
++- Upstream `nx2` already contains #303 (opt-in desktop compatibility reports),
++  #287 (Linux AppImage switch discovery and package defaults), #314 (new-user
++  performance defaults), #224 (async native discard), #273 (AMD shader
++  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
++  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
++  are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
@@ -339,7 +349,7 @@ index 0000000000..5fc95f0e90
 +`superbuild`.
 +
 +```bash
-+git checkout c9bdbaa3
++git checkout 4c173bb7
 +git apply patches/superbuild.patch
 +```
 diff --git a/dist/nx2_switches.txt b/dist/nx2_switches.txt
