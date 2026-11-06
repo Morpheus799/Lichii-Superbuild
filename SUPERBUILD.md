@@ -10,6 +10,7 @@ This build exists because of the work of:
 - [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 - [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
 - [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
+- [Shakoquo/Lichii-sharkiix-version](https://github.com/Shakoquo/Lichii-sharkiix-version) — GPU thread wake and AMD/OoT tuning experiments
 - [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 - The Eglantine, Eden, yuzu and Sudachi contributors
 
@@ -24,11 +25,11 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `c9bdbaa38ee522e3124ae05eb56c74be15cf780a` (2026-11-06)
-- Upstream `nx2` already contains #273 (AMD shader typing/depth sampling),
-  #284 (AV1 in MinGW builds), #290 (worker lost-wake fix) and #295
-  (misaligned SSBO accesses and compute write ordering); those are not
-  re-applied here.
+- Base commit: `a7a281757da390ce45070e772784e0333831bb25` (2026-11-06)
+- Upstream `nx2` already contains #224 (async native discard), #273 (AMD shader
+  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
+  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
+  are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
@@ -60,6 +61,7 @@ testing only; they are not attached to releases. The PGO profile is
 | Do not download GPU data over newer CPU writes (OoT reticle) | Duck912, `05fe0408` |
 | Submit deferred work before the split back waits on fences | GPU-split branch, `498345a5` |
 | Hand macros back when the GPU split stops | GPU-split branch, `5b1b5c0f`, conflict resolved |
+| Wake the GPU thread on a queued command | Shakoquo `sharkiix`, `28f594acc7` |
 
 ### Additional portable fixes
 
