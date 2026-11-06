@@ -3,6 +3,14 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## Unreleased
+
+- Ocarina of Time now asks once per launch whether to use the recommended
+  performance settings: FSR3 scaling, GPU accuracy Low, GPU NVDEC, async
+  presentation and async shaders. The settings apply for the session and do
+  not change saved preferences.
+- New desktop configs still receive those values as their first-run defaults.
+
 ## 261106-v4
 
 - Base: `nx2` `a7a28175` — upstream PR #224 (async native discard), #290
