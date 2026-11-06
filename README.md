@@ -42,6 +42,9 @@ Visit the [official Lichii website](https://lichii.zortos.me) to find games and 
 
 ## Downloads and setup
 
+See the [releases](https://github.com/callme-sy/Lichii-Superbuild/releases) and
+the [changelog](CHANGELOG.md).
+
 Published builds belong on this fork's [releases page](https://github.com/zortos293/Eglantine/releases). The repository still uses its historical Eglantine name; the desktop application is now Lichii.
 
 On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
