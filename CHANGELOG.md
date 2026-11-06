@@ -1,11 +1,33 @@
 # Changelog
 
-All notable changes to Eglantine are documented here. Each release's notes are taken from its
-`## [X.Y.Z]` section (release candidates use the section of the version they are a candidate for).
-New entries go under `## [Unreleased]`; `tools/ci/bump-version.sh` turns them into a version section.
+All releases are unofficial builds. See the GitHub releases for assets and
+checksums.
 
-## [Unreleased]
+## 261106-v4
 
-## [0.1.0]
+- Base: `nx2` `a7a28175` — upstream PR #224 (async native discard), #290
+  (worker lost-wake fix), #295 (misaligned SSBO accesses and compute write
+  ordering).
+- Added GPU thread wake from Shakoquo's sharkiix work: queued commands wake the
+  GPU thread immediately; the poll interval is 500 µs instead of 1 ms.
+- Keeps the full superbuild fix set: OoT reticle, GPU split, Bananza page-mark
+  batching, Frizti ports, query timing, HMMA unroll, AMD-oriented fixes.
+- Windows and Linux, standard and PGO.
 
-- Initial release candidate
+## 261106-v3
+
+- Base: `nx2` `c9bdbaa3` — upstream #290 and #295.
+- Added PR #224 `EDEN_NX2_ASYNC_DISCARD=1`: native draws skip unbuilt pipelines
+  instead of stalling; measured `draws held for unbuilt pipelines` dropped from
+  816 ms to 0–8.7 ms per 10 s.
+- Keeps the full superbuild fix set.
+- Windows and Linux, standard and PGO.
+
+## 261106-v2
+
+- Base: `nx2` `e219d24c` — upstream #273 (AMD shader typing, atomic retries,
+  compiler stalls) and #284 (MinGW AV1).
+- First release with the full curated superbuild fix set: Bananza page-mark
+  batching, OoT reticle, GPU split, Frizti ports, mja00 fixes, Nolar AMD fixes.
+- Windows and Linux, standard and PGO.
+- Includes reference builds from `e219d24c` and `55532f2d`.
