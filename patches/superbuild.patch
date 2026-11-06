@@ -25,6 +25,50 @@ index 873b99bec2..258906d26f 100644
 +nx2_switches.local.txt
 +dist-local/
 +tools/superbuild/local/
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index bc40878ce6..c970981bcf 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,11 +1,33 @@
+ # Changelog
+ 
+-All notable changes to Eglantine are documented here. Each release's notes are taken from its
+-`## [X.Y.Z]` section (release candidates use the section of the version they are a candidate for).
+-New entries go under `## [Unreleased]`; `tools/ci/bump-version.sh` turns them into a version section.
++All releases are unofficial builds. See the GitHub releases for assets and
++checksums.
+ 
+-## [Unreleased]
++## 261106-v4
+ 
+-## [0.1.0]
++- Base: `nx2` `a7a28175` — upstream PR #224 (async native discard), #290
++  (worker lost-wake fix), #295 (misaligned SSBO accesses and compute write
++  ordering).
++- Added GPU thread wake from Shakoquo's sharkiix work: queued commands wake the
++  GPU thread immediately; the poll interval is 500 µs instead of 1 ms.
++- Keeps the full superbuild fix set: OoT reticle, GPU split, Bananza page-mark
++  batching, Frizti ports, query timing, HMMA unroll, AMD-oriented fixes.
++- Windows and Linux, standard and PGO.
+ 
+-- Initial release candidate
++## 261106-v3
++
++- Base: `nx2` `c9bdbaa3` — upstream #290 and #295.
++- Added PR #224 `EDEN_NX2_ASYNC_DISCARD=1`: native draws skip unbuilt pipelines
++  instead of stalling; measured `draws held for unbuilt pipelines` dropped from
++  816 ms to 0–8.7 ms per 10 s.
++- Keeps the full superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v2
++
++- Base: `nx2` `e219d24c` — upstream #273 (AMD shader typing, atomic retries,
++  compiler stalls) and #284 (MinGW AV1).
++- First release with the full curated superbuild fix set: Bananza page-mark
++  batching, OoT reticle, GPU split, Frizti ports, mja00 fixes, Nolar AMD fixes.
++- Windows and Linux, standard and PGO.
++- Includes reference builds from `e219d24c` and `55532f2d`.
 diff --git a/MCP-DEBUG.md b/MCP-DEBUG.md
 new file mode 100644
 index 0000000000..a0496b95b6
@@ -93,10 +137,10 @@ index 0000000000..a0496b95b6
 +expose the port to a network. Dumps and captures can contain game assets; keep
 +them local and do not upload `.rdc` captures or dumps publicly.
 diff --git a/README.md b/README.md
-index 0502b3f38e..6b58dbb60e 100644
+index 0502b3f38e..d488b8c528 100644
 --- a/README.md
 +++ b/README.md
-@@ -12,6 +12,28 @@
+@@ -12,12 +12,37 @@
  
  # Lichii
  
@@ -125,6 +169,15 @@ index 0502b3f38e..6b58dbb60e 100644
  Lichii is an experimental, open-source Nintendo Switch and Switch 2 emulator written in C++. It builds on Eglantine, Eden, yuzu and Sudachi, preserving their contributions while developing this fork's game compatibility and renderer fixes.
  
  This is an independent fork, not an official release of those upstream projects. Lichii is not affiliated with Nintendo.
+ 
+ ## Downloads and setup
+ 
++See the [releases](https://github.com/callme-sy/Lichii-Superbuild/releases) and
++the [changelog](CHANGELOG.md).
++
+ Published builds belong on this fork's [releases page](https://github.com/zortos293/Eglantine/releases). The repository still uses its historical Eglantine name; the desktop application is now Lichii.
+ 
+ On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
 index 0000000000..46a23d2ad5
@@ -444,6 +497,54 @@ index a80387be01..b58bca1efd 100644
              if (input.end) {
                  decoder->Drain(pictures);
              }
+diff --git a/src/frontend_common/config.cpp b/src/frontend_common/config.cpp
+index f61192dfae..f1ab9d80e4 100644
+--- a/src/frontend_common/config.cpp
++++ b/src/frontend_common/config.cpp
+@@ -6,6 +6,7 @@
+ 
+ #include <algorithm>
+ #include <array>
++#include <filesystem>
+ #include "common/fs/fs.h"
+ #include "common/fs/path_util.h"
+ #include "common/logging.h"
+@@ -118,10 +119,33 @@ void Config::SetUpIni() {
+         return;
+     }
+ 
+-    if (SI_Error rc = config->LoadFile(fp); rc < 0) {
++    const SI_Error rc = config->LoadFile(fp);
++    fclose(fp);
++    if (rc < 0) {
+         LOG_ERROR(Frontend, "Config file could not be loaded!");
++        return;
+     }
+-    fclose(fp);
++
++#ifndef __ANDROID__
++    // Superbuild migration: apply the performance defaults once to every global config,
++    // including existing users. The marker keeps later user changes intact.
++    const bool apply_superbuild_defaults =
++        global && config->GetValue("Superbuild", "DefaultsV1", nullptr) == nullptr;
++    if (apply_superbuild_defaults) {
++        BeginGroup(Settings::TranslateCategory(Settings::Category::Renderer));
++        const auto seed = [this](const Settings::BasicSetting& setting, const std::string& value) {
++            WriteStringSetting(setting.GetLabel(), value);
++            WriteBooleanSetting(setting.GetLabel() + "\\default", false);
++        };
++        seed(Settings::values.scaling_filter, ToString(u32(Settings::ScalingFilter::Fsr3)));
++        seed(Settings::values.gpu_accuracy, ToString(u32(Settings::GpuAccuracy::Low)));
++        seed(Settings::values.nvdec_emulation, ToString(u32(Settings::NvdecEmulation::Gpu)));
++        seed(Settings::values.async_presentation, ToString(true));
++        seed(Settings::values.use_asynchronous_shaders, ToString(true));
++        EndGroup();
++        config->SetValue("Superbuild", "DefaultsV1", "1");
++    }
++#endif
+ }
+ 
+ bool Config::IsCustomConfig() const {
 diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
 index c8f3ae570d..1896614526 100644
 --- a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
@@ -552,7 +653,7 @@ index c8f3ae570d..1896614526 100644
          for (u32 row = 0; row < 2; ++row)
              packed[row] = ctx.OpPackHalf2x16(u32ty, ctx.OpCompositeConstruct(ctx.F32[2],
 diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
-index 688fc8fff7..ab9f191f25 100644
+index 688fc8fff7..67c2bf287f 100644
 --- a/src/tests/CMakeLists.txt
 +++ b/src/tests/CMakeLists.txt
 @@ -67,6 +67,7 @@ add_executable(tests
@@ -563,6 +664,383 @@ index 688fc8fff7..ab9f191f25 100644
      video_core/command_snapshot_suspensions.cpp
      video_core/pending_maps.cpp
      video_core/maxwell_fast_method.cpp
+@@ -173,6 +174,15 @@ add_executable(update_checker_tests
+ target_link_libraries(update_checker_tests PRIVATE common Catch2::Catch2WithMain)
+ add_test(NAME update_checker_tests COMMAND update_checker_tests)
+ 
++if (NOT ANDROID)
++    add_executable(config_tests
++        common/first_run_config.cpp
++        ../frontend_common/config.cpp)
++    target_link_libraries(config_tests PRIVATE common SimpleIni::SimpleIni Catch2::Catch2WithMain
++        ${PLATFORM_LIBRARIES})
++    add_test(NAME config_tests COMMAND config_tests)
++endif()
++
+ # needed for vma
+ if (NOT MSVC)
+     target_compile_options(tests PRIVATE
+diff --git a/src/tests/common/first_run_config.cpp b/src/tests/common/first_run_config.cpp
+new file mode 100644
+index 0000000000..de8dccaab4
+--- /dev/null
++++ b/src/tests/common/first_run_config.cpp
+@@ -0,0 +1,355 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <filesystem>
++#include <fstream>
++#include <random>
++#include <catch2/catch_test_macros.hpp>
++#include <fmt/format.h>
++#include "common/fs/path_util.h"
++#include "common/settings.h"
++#include "frontend_common/config.h"
++
++namespace {
++
++class FileConfig final : public Config {
++public:
++    explicit FileConfig(const std::string& name, ConfigType type = ConfigType::GlobalConfig)
++        : Config{type} {
++        Initialize(name);
++    }
++
++    explicit FileConfig(std::optional<std::string> path) {
++        Initialize(path);
++    }
++
++    using Config::Reload;
++    using Config::SaveValues;
++
++private:
++    void ReloadAllValues() override {}
++    void SaveAllValues() override {}
++    void ReadHidbusValues() override {}
++    void ReadDebugControlValues() override {}
++    void ReadPathValues() override {}
++    void ReadShortcutValues() override {}
++    void ReadUIValues() override {}
++    void ReadUIGamelistValues() override {}
++    void ReadUILayoutValues() override {}
++    void ReadMultiplayerValues() override {}
++    void SaveHidbusValues() override {}
++    void SaveDebugControlValues() override {}
++    void SavePathValues() override {}
++    void SaveShortcutValues() override {}
++    void SaveUIValues() override {}
++    void SaveUIGamelistValues() override {}
++    void SaveUILayoutValues() override {}
++    void SaveMultiplayerValues() override {}
++    std::vector<Settings::BasicSetting*>& FindRelevantList(Settings::Category category) override {
++        return Settings::values.linkage.by_category[category];
++    }
++};
++
++class ConfigDirectory {
++public:
++    ConfigDirectory()
++        : original{Common::FS::GetEdenPath(Common::FS::EdenPath::ConfigDir)},
++          path{std::filesystem::temp_directory_path() /
++               fmt::format("lichii-config-{}", std::random_device{}())} {
++        REQUIRE(std::filesystem::create_directory(path));
++        Common::FS::SetEdenPath(Common::FS::EdenPath::ConfigDir, path);
++        for (const auto& [key, setting] : Settings::values.linkage.by_key) {
++            setting->SetGlobal(false);
++            setting->LoadString("");
++            setting->SetGlobal(true);
++            setting->LoadString("");
++        }
++    }
++
++    ~ConfigDirectory() {
++        Common::FS::SetEdenPath(Common::FS::EdenPath::ConfigDir, original);
++        std::error_code error;
++        std::filesystem::remove_all(path, error);
++    }
++
++    void Write(const std::string& name, const std::string& contents) const {
++        std::filesystem::create_directories((path / name).parent_path());
++        std::ofstream file{path / name};
++        file << contents;
++        REQUIRE(file.good());
++    }
++
++    const std::filesystem::path original;
++    const std::filesystem::path path;
++};
++
++void CheckFreshProfile() {
++    const auto& values = Settings::values;
++    CHECK(values.scaling_filter.GetValue() == Settings::ScalingFilter::Fsr3);
++    CHECK(values.gpu_accuracy.GetValue() == Settings::GpuAccuracy::Low);
++    CHECK(values.nvdec_emulation.GetValue() == Settings::NvdecEmulation::Gpu);
++    CHECK(values.async_presentation.GetValue());
++    CHECK(values.use_asynchronous_shaders.GetValue());
++}
++
++void CheckLegacyProfile() {
++    const auto& values = Settings::values;
++    CHECK(values.scaling_filter.GetValue() == Settings::ScalingFilter::ScaleForce);
++    CHECK(values.gpu_accuracy.GetValue() == Settings::GpuAccuracy::High);
++    CHECK(values.nvdec_emulation.GetValue() == Settings::NvdecEmulation::Cpu);
++    CHECK_FALSE(values.async_presentation.GetValue());
++    CHECK_FALSE(values.use_asynchronous_shaders.GetValue());
++}
++
++void CheckUnchangedProfile() {
++    const auto& values = Settings::values;
++    CHECK(values.gpu_clock.GetValue() == Settings::GpuClock::Boost);
++    CHECK(values.cpu_clock.GetValue() == Settings::CpuClock::Normal);
++    CHECK(values.use_multi_core.GetValue());
++    CHECK(values.use_speed_limit.GetValue());
++    CHECK(values.speed_limit.GetValue() == 100);
++    CHECK(values.slow_speed_limit.GetValue() == 50);
++    CHECK(values.turbo_speed_limit.GetValue() == 200);
++    CHECK_FALSE(values.sync_core_speed.GetValue());
++    CHECK(values.memory_layout_mode.GetValue() == Settings::MemoryLayout::Memory_4Gb);
++    CHECK(values.vsync_mode.GetValue() == Settings::VSyncMode::Fifo);
++    CHECK(values.fsr_sharpening_slider.GetValue() == 25);
++    CHECK(values.dma_accuracy.GetValue() == Settings::DmaAccuracy::Default);
++    CHECK(values.gpu_fence_behavior.GetValue() == Settings::GpuFenceBehavior::Default);
++    CHECK(values.vram_usage_mode.GetValue() == Settings::VramUsageMode::Conservative);
++    CHECK(values.max_anisotropy.GetValue() == Settings::AnisotropyMode::Automatic);
++    CHECK(values.accelerate_astc.GetValue() == Settings::AstcDecodeMode::Gpu);
++    CHECK(values.frame_pacing_mode.GetValue() == Settings::FramePacingMode::Target_Auto);
++    CHECK(values.astc_recompression.GetValue() == Settings::AstcRecompression::Bc3);
++    CHECK_FALSE(values.sync_memory_operations.GetValue());
++    CHECK_FALSE(values.renderer_force_max_clock.GetValue());
++    CHECK(values.use_disk_shader_cache.GetValue());
++    CHECK(values.use_vulkan_driver_pipeline_cache.GetValue());
++    CHECK_FALSE(values.use_video_framerate.GetValue());
++    CHECK_FALSE(values.mkw_30fps.GetValue());
++    CHECK_FALSE(values.mkw_dynamic_fps.GetValue());
++    CHECK(values.use_reactive_flushing.GetValue());
++    CHECK(values.barrier_feedback_loops.GetValue());
++    CHECK_FALSE(values.enable_buffer_history.GetValue());
++    CHECK_FALSE(values.skip_cpu_inner_invalidation.GetValue());
++    CHECK_FALSE(values.fix_bloom_effects.GetValue());
++    CHECK(values.gpu_unswizzle_texture_size.GetValue() == Settings::GpuUnswizzleSize::Large);
++    CHECK(values.gpu_unswizzle_stream_size.GetValue() == Settings::GpuUnswizzle::Medium);
++    CHECK(values.gpu_unswizzle_chunk_size.GetValue() == Settings::GpuUnswizzleChunk::Medium);
++    CHECK_FALSE(values.gpu_unswizzle_enabled.GetValue());
++    CHECK(values.dyna_state.GetValue() == values.dyna_state.GetDefault());
++    CHECK(values.sample_shading.GetValue() == 0);
++    CHECK(values.vertex_input_dynamic_state.GetValue());
++}
++
++} // namespace
++
++TEST_CASE("Absent global config receives the first-run profile and persists it", "[config]") {
++    ConfigDirectory directory;
++    std::unique_ptr<FileConfig> config;
++    SECTION("Qt config name") {
++        config = std::make_unique<FileConfig>(std::string{"qt-config"});
++    }
++    SECTION("SDL default path") {
++        config = std::make_unique<FileConfig>(std::optional<std::string>{});
++    }
++    SECTION("SDL custom path") {
++        config = std::make_unique<FileConfig>(
++            std::make_optional(Common::FS::PathToUTF8String(directory.path / "explicit.ini")));
++    }
++    SECTION("SDL UTF-8 config path") {
++        config = std::make_unique<FileConfig>(
++            std::make_optional(Common::FS::PathToUTF8String(directory.path / u8"新用户-é.ini")));
++    }
++    CheckFreshProfile();
++    CheckUnchangedProfile();
++    CSimpleIniA saved;
++    std::ifstream file{std::filesystem::path{Common::FS::ToU8String(config->GetConfigFilePath())}};
++    REQUIRE(file.is_open());
++    const std::string contents{std::istreambuf_iterator<char>{file},
++                               std::istreambuf_iterator<char>{}};
++    REQUIRE(saved.LoadData(contents) >= 0);
++    file.close();
++    for (const char* key : {"scaling_filter", "gpu_accuracy", "nvdec_emulation",
++                            "async_presentation", "use_asynchronous_shaders"}) {
++        CHECK_FALSE(saved.GetBoolValue("Renderer", (std::string{key} + "\\default").c_str(), true));
++    }
++    const auto filename = config->GetConfigFilePath();
++    config.reset();
++    FileConfig reopened{std::make_optional(filename)};
++    CheckFreshProfile();
++    reopened.Reload();
++    CheckFreshProfile();
++}
++
++TEST_CASE("Existing explicit settings survive load save and reopen", "[config]") {
++    ConfigDirectory directory;
++    directory.Write(
++        "qt-config.ini",
++        fmt::format("[Renderer]\nscaling_filter={}\nscaling_filter\\default=false\n"
++                    "gpu_accuracy={}\ngpu_accuracy\\default=false\n"
++                    "nvdec_emulation={}\nnvdec_emulation\\default=false\n"
++                    "async_presentation=false\nasync_presentation\\default=false\n"
++                    "use_asynchronous_shaders=false\nuse_asynchronous_shaders\\default=false\n"
++                    "fsr_sharpening_slider=83\nfsr_sharpening_slider\\default=false\n"
++                    "[System]\nfast_gpu_time={}\nfast_gpu_time\\default=false\n",
++                    u32(Settings::ScalingFilter::Bilinear), u32(Settings::GpuAccuracy::High),
++                    u32(Settings::NvdecEmulation::Off), u32(Settings::GpuClock::Normal)));
++    for (int i = 0; i < 3; ++i) {
++        FileConfig config{std::string{"qt-config"}};
++        CHECK(Settings::values.scaling_filter.GetValue() == Settings::ScalingFilter::Bilinear);
++        CHECK(Settings::values.gpu_accuracy.GetValue() == Settings::GpuAccuracy::High);
++        CHECK(Settings::values.nvdec_emulation.GetValue() == Settings::NvdecEmulation::Off);
++        CHECK_FALSE(Settings::values.async_presentation.GetValue());
++        CHECK_FALSE(Settings::values.use_asynchronous_shaders.GetValue());
++        CHECK(Settings::values.fsr_sharpening_slider.GetValue() == 83);
++        CHECK(Settings::values.gpu_clock.GetValue() == Settings::GpuClock::Normal);
++    }
++}
++
++TEST_CASE("Existing default markers and missing keys keep their historical values", "[config]") {
++    ConfigDirectory directory;
++    std::string contents;
++    SECTION("Empty existing config") {}
++    SECTION("Missing renderer keys") {
++        contents = "[System]\nfast_gpu_time\\default=true\n";
++    }
++    SECTION("Stored values without default markers") {
++        contents = "[Renderer]\nasync_presentation=true\nuse_asynchronous_shaders=true\n";
++    }
++    SECTION("Malformed existing config") {
++        contents = "[incomplete section\nnot a setting\n";
++    }
++    SECTION("Default markers override conflicting stored values") {
++        contents =
++            fmt::format("[Renderer]\nscaling_filter={}\nscaling_filter\\default=true\n"
++                        "gpu_accuracy={}\ngpu_accuracy\\default=true\n"
++                        "nvdec_emulation={}\nnvdec_emulation\\default=true\n"
++                        "async_presentation=true\nasync_presentation\\default=true\n"
++                        "use_asynchronous_shaders=true\nuse_asynchronous_shaders\\default=true\n",
++                        u32(Settings::ScalingFilter::Fsr3), u32(Settings::GpuAccuracy::Low),
++                        u32(Settings::NvdecEmulation::Gpu));
++    }
++    directory.Write("qt-config.ini", contents);
++    for (int i = 0; i < 3; ++i) {
++        FileConfig config{std::string{"qt-config"}};
++        CheckLegacyProfile();
++    }
++}
++
++TEST_CASE("Resetting a seeded setting does not reapply the first-run profile", "[config]") {
++    ConfigDirectory directory;
++    {
++        FileConfig config{std::string{"qt-config"}};
++        CheckFreshProfile();
++        Settings::values.scaling_filter.LoadString("");
++        Settings::values.gpu_accuracy.LoadString("");
++        Settings::values.nvdec_emulation.LoadString("");
++        Settings::values.async_presentation.LoadString("");
++        Settings::values.use_asynchronous_shaders.LoadString("");
++        config.SaveValues();
++        config.Reload();
++        CheckLegacyProfile();
++    }
++    FileConfig reopened{std::string{"qt-config"}};
++    CheckLegacyProfile();
++}
++
++TEST_CASE("Per-game overrides and use-global flags survive the new global profile", "[config]") {
++    ConfigDirectory directory;
++    FileConfig global{std::string{"qt-config"}};
++    directory.Write(
++        "custom/game.ini",
++        fmt::format(
++            "[Renderer]\nscaling_filter={}\nscaling_filter\\default=false\n"
++            "scaling_filter\\use_global=false\n"
++            "gpu_accuracy={}\ngpu_accuracy\\default=true\ngpu_accuracy\\use_global=false\n"
++            "nvdec_emulation={}\nnvdec_emulation\\default=false\nnvdec_emulation\\use_global=true\n"
++            "async_presentation=false\nasync_presentation\\default=false\n"
++            "async_presentation\\use_global=false\n",
++            u32(Settings::ScalingFilter::Bilinear), u32(Settings::GpuAccuracy::Low),
++            u32(Settings::NvdecEmulation::Off)));
++    for (int i = 0; i < 3; ++i) {
++        FileConfig game{std::string{"game"}, Config::ConfigType::PerGameConfig};
++        CHECK_FALSE(Settings::values.scaling_filter.UsingGlobal());
++        CHECK(Settings::values.scaling_filter.GetValue() == Settings::ScalingFilter::Bilinear);
++        CHECK(Settings::values.scaling_filter.GetValue(true) == Settings::ScalingFilter::Fsr3);
++        CHECK_FALSE(Settings::values.gpu_accuracy.UsingGlobal());
++        CHECK(Settings::values.gpu_accuracy.GetValue() == Settings::GpuAccuracy::High);
++        CHECK(Settings::values.gpu_accuracy.GetValue(true) == Settings::GpuAccuracy::Low);
++        CHECK(Settings::values.nvdec_emulation.UsingGlobal());
++        CHECK(Settings::values.nvdec_emulation.GetValue() == Settings::NvdecEmulation::Gpu);
++        CHECK_FALSE(Settings::values.async_presentation.UsingGlobal());
++        CHECK_FALSE(Settings::values.async_presentation.GetValue());
++        CHECK(Settings::values.async_presentation.GetValue(true));
++        CHECK(Settings::values.use_asynchronous_shaders.UsingGlobal());
++        CHECK(Settings::values.use_asynchronous_shaders.GetValue());
++    }
++}
++
++TEST_CASE("Missing per-game and input profiles are not seeded", "[config]") {
++    ConfigDirectory directory;
++    FileConfig global{std::string{"qt-config"}};
++    FileConfig game{std::string{"game"}, Config::ConfigType::PerGameConfig};
++    CheckFreshProfile();
++    CHECK(Settings::values.scaling_filter.UsingGlobal());
++    CHECK_FALSE(game.Exists("Renderer", "scaling_filter\\default"));
++    FileConfig input{std::string{"controller"}, Config::ConfigType::InputProfile};
++    CHECK_FALSE(input.Exists("Renderer", "scaling_filter"));
++    CheckFreshProfile();
++}
++
++#ifndef _WIN32
++TEST_CASE("A dangling config symlink is not a new user", "[config]") {
++    ConfigDirectory directory;
++    std::filesystem::create_symlink(directory.path / "target.ini",
++                                    directory.path / "qt-config.ini");
++    FileConfig config{std::string{"qt-config"}};
++    CheckLegacyProfile();
++}
++
++TEST_CASE("An unreadable config is not seeded or overwritten", "[config]") {
++    ConfigDirectory directory;
++    const auto filename = directory.path / "qt-config.ini";
++    const std::string contents = "[Renderer]\nasync_presentation=false\n";
++    directory.Write("qt-config.ini", contents);
++    std::filesystem::permissions(filename, std::filesystem::perms::none);
++    if (std::ifstream{filename}.is_open()) {
++        std::filesystem::permissions(filename, std::filesystem::perms::owner_read |
++                                                   std::filesystem::perms::owner_write);
++        SKIP("This user can read files despite restrictive permissions");
++    }
++    FileConfig config{std::string{"qt-config"}};
++    CheckLegacyProfile();
++    std::filesystem::permissions(filename, std::filesystem::perms::owner_read |
++                                               std::filesystem::perms::owner_write);
++    std::ifstream file{filename};
++    const std::string saved{std::istreambuf_iterator<char>{file}, std::istreambuf_iterator<char>{}};
++    CHECK(saved == contents);
++}
++
++TEST_CASE("A denied config status lookup is not seeded", "[config]") {
++    ConfigDirectory directory;
++    const auto inaccessible = directory.path / "inaccessible";
++    std::filesystem::create_directory(inaccessible);
++    std::filesystem::permissions(inaccessible, std::filesystem::perms::none);
++    const auto filename = inaccessible / "config.ini";
++    std::error_code error;
++    void(std::filesystem::symlink_status(filename, error));
++    if (error != std::errc::permission_denied) {
++        std::filesystem::permissions(inaccessible, std::filesystem::perms::owner_all);
++        SKIP("This user can query paths despite restrictive permissions");
++    }
++    FileConfig config{std::make_optional(Common::FS::PathToUTF8String(filename))};
++    CheckLegacyProfile();
++    std::filesystem::permissions(inaccessible, std::filesystem::perms::owner_all);
++    CHECK_FALSE(std::filesystem::exists(filename));
++}
++#endif
++
++TEST_CASE("A config path beneath a non-directory is not seeded", "[config]") {
++    ConfigDirectory directory;
++    directory.Write("file", "not a directory");
++    FileConfig config{
++        std::make_optional(Common::FS::PathToUTF8String(directory.path / "file" / "config.ini"))};
++    CheckLegacyProfile();
++}
 diff --git a/src/tests/video_core/nx2_written_pages.cpp b/src/tests/video_core/nx2_written_pages.cpp
 new file mode 100644
 index 0000000000..45c283667c
