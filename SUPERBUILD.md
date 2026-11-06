@@ -23,9 +23,11 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `e219d24c5affb2450963017dd8b07ec22618654e` (2026-11-06)
-- Upstream `nx2` already contains #273 (AMD shader typing/depth sampling) and
-  #284 (AV1 in MinGW builds); those are not re-applied here.
+- Base commit: `c9bdbaa38ee522e3124ae05eb56c74be15cf780a` (2026-11-06)
+- Upstream `nx2` already contains #273 (AMD shader typing/depth sampling),
+  #284 (AV1 in MinGW builds), #290 (worker lost-wake fix) and #295
+  (misaligned SSBO accesses and compute write ordering); those are not
+  re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
@@ -132,6 +134,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout e219d24c
+git checkout c9bdbaa3
 git apply patches/superbuild.patch
 ```
