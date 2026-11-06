@@ -252,6 +252,7 @@ public:
     }
 
     bool IsNativeMode() const { return native_mode; }
+    bool IsDlssDispatch() const { return native_mode && dlss_chain.active; }
     bool ProcessGameDlss(u64 program_id, u64 native_key);
     void TraceDlssContract(u64 native_key, bool warn_unvalidated = true);
 
@@ -268,6 +269,7 @@ public:
 private:
     struct FrontState;
     FrontState& Front(VideoCommon::GpuSplit& split);
+    void FrontHandBack();
     void FrontApply(FrontState& state, u32 method, u32 argument);
     MacroEngine& FrontMacroEngine(FrontState& state);
     std::span<u32> FrontMacroPositions(FrontState& state);
