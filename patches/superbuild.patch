@@ -338,6 +338,43 @@ index 5c75012803..64a833a414 100644
  #EDEN_NX2_KEEP_ASTC=1
 +EDEN_NX2_PRELOAD_ALL_PIPELINES=1
 +EDEN_NX2_ASYNC_DISCARD=1
+diff --git a/src/common/game_presets.h b/src/common/game_presets.h
+index 83dd4d3c3f..1379e76568 100644
+--- a/src/common/game_presets.h
++++ b/src/common/game_presets.h
+@@ -7,6 +7,7 @@
+ namespace Settings {
+ 
+ inline constexpr u64 MarioKartWorldProgramId = 0x0400C3F00006E000ULL;
++inline constexpr u64 OcarinaOfTimeProgramId = 0x0400486024DEC000ULL;
+ 
+ inline void SetMarioKartWorldRecommendedSettings(Values& settings, bool global) {
+     const auto session = [global](auto& setting, auto value) {
+@@ -34,4 +35,24 @@ inline bool ApplyMarioKartWorldPreset(Values& settings, u64 program_id, bool acc
+     return true;
+ }
+ 
++inline void SetOcarinaOfTimeRecommendedSettings(Values& settings, bool global) {
++    const auto session = [global](auto& setting, auto value) {
++        setting.SetGlobal(global);
++        setting.SetValue(value);
++    };
++    session(settings.scaling_filter, ScalingFilter::Fsr3);
++    session(settings.gpu_accuracy, GpuAccuracy::Low);
++    session(settings.nvdec_emulation, NvdecEmulation::Gpu);
++    session(settings.async_presentation, true);
++    session(settings.use_asynchronous_shaders, true);
++}
++
++inline bool ApplyOcarinaOfTimePreset(Values& settings, u64 program_id, bool accepted) {
++    if (!accepted || program_id != OcarinaOfTimeProgramId) {
++        return false;
++    }
++    SetOcarinaOfTimeRecommendedSettings(settings, false);
++    return true;
++}
++
+ } // namespace Settings
 diff --git a/src/core/core.cpp b/src/core/core.cpp
 index 7b33e18f0b..ad20b7ac3a 100644
 --- a/src/core/core.cpp
@@ -498,7 +535,7 @@ index a80387be01..b58bca1efd 100644
                  decoder->Drain(pictures);
              }
 diff --git a/src/frontend_common/config.cpp b/src/frontend_common/config.cpp
-index f61192dfae..f1ab9d80e4 100644
+index f61192dfae..698385ed1e 100644
 --- a/src/frontend_common/config.cpp
 +++ b/src/frontend_common/config.cpp
 @@ -6,6 +6,7 @@
@@ -509,7 +546,21 @@ index f61192dfae..f1ab9d80e4 100644
  #include "common/fs/fs.h"
  #include "common/fs/path_util.h"
  #include "common/logging.h"
-@@ -118,10 +119,33 @@ void Config::SetUpIni() {
+@@ -100,6 +101,13 @@ void Config::SetUpIni() {
+     config->SetUnicode(true);
+     config->SetSpaces(false);
+ 
++#ifndef __ANDROID__
++    std::error_code error;
++    const auto status = std::filesystem::symlink_status(FS::ToU8String(config_loc), error);
++    const bool new_global_config = global && status.type() == std::filesystem::file_type::not_found &&
++                                   (!error || error == std::errc::no_such_file_or_directory);
++#endif
++
+     FILE* fp = nullptr;
+ #ifdef _WIN32
+     _wfopen_s(&fp, Common::UTF8ToUTF16W(config_loc).data(), L"rb, ccs=UTF-8");
+@@ -118,10 +126,28 @@ void Config::SetUpIni() {
          return;
      }
  
@@ -523,11 +574,7 @@ index f61192dfae..f1ab9d80e4 100644
 -    fclose(fp);
 +
 +#ifndef __ANDROID__
-+    // Superbuild migration: apply the performance defaults once to every global config,
-+    // including existing users. The marker keeps later user changes intact.
-+    const bool apply_superbuild_defaults =
-+        global && config->GetValue("Superbuild", "DefaultsV1", nullptr) == nullptr;
-+    if (apply_superbuild_defaults) {
++    if (new_global_config) {
 +        BeginGroup(Settings::TranslateCategory(Settings::Category::Renderer));
 +        const auto seed = [this](const Settings::BasicSetting& setting, const std::string& value) {
 +            WriteStringSetting(setting.GetLabel(), value);
@@ -539,7 +586,6 @@ index f61192dfae..f1ab9d80e4 100644
 +        seed(Settings::values.async_presentation, ToString(true));
 +        seed(Settings::values.use_asynchronous_shaders, ToString(true));
 +        EndGroup();
-+        config->SetValue("Superbuild", "DefaultsV1", "1");
 +    }
 +#endif
  }
@@ -1040,6 +1086,36 @@ index 0000000000..de8dccaab4
 +    FileConfig config{
 +        std::make_optional(Common::FS::PathToUTF8String(directory.path / "file" / "config.ini"))};
 +    CheckLegacyProfile();
++}
+diff --git a/src/tests/common/game_presets.cpp b/src/tests/common/game_presets.cpp
+index 481f5c5e1d..48dd887b97 100644
+--- a/src/tests/common/game_presets.cpp
++++ b/src/tests/common/game_presets.cpp
+@@ -109,3 +109,25 @@ TEST_CASE("Declining the MKW preset preserves global and per-game preferences",
+         CHECK(settings->resolution_setup.UsingGlobal() == !per_game);
+     }
+ }
++
++TEST_CASE("OoT performance preset applies only when accepted", "[game_presets]") {
++    auto settings = std::make_unique<Settings::Values>();
++    settings->scaling_filter.SetValue(Settings::ScalingFilter::NearestNeighbor);
++    settings->gpu_accuracy.SetValue(Settings::GpuAccuracy::High);
++    settings->nvdec_emulation.SetValue(Settings::NvdecEmulation::Cpu);
++    settings->async_presentation.SetValue(false);
++    settings->use_asynchronous_shaders.SetValue(false);
++
++    CHECK_FALSE(
++        Settings::ApplyOcarinaOfTimePreset(*settings, Settings::OcarinaOfTimeProgramId, false));
++    CHECK_FALSE(Settings::ApplyOcarinaOfTimePreset(*settings, Settings::MarioKartWorldProgramId,
++                                                   true));
++    REQUIRE(
++        Settings::ApplyOcarinaOfTimePreset(*settings, Settings::OcarinaOfTimeProgramId, true));
++
++    CHECK(settings->scaling_filter.GetValue() == Settings::ScalingFilter::Fsr3);
++    CHECK(settings->gpu_accuracy.GetValue() == Settings::GpuAccuracy::Low);
++    CHECK(settings->nvdec_emulation.GetValue() == Settings::NvdecEmulation::Gpu);
++    CHECK(settings->async_presentation.GetValue());
++    CHECK(settings->use_asynchronous_shaders.GetValue());
 +}
 diff --git a/src/tests/video_core/nx2_written_pages.cpp b/src/tests/video_core/nx2_written_pages.cpp
 new file mode 100644
@@ -2302,6 +2378,49 @@ index 8ca5df2337..6bb99f0c52 100644
      if (log) {
          LOG_INFO(HW_GPU, "Texture cache thresholds: expected {} MiB, critical {} MiB, minimum {} MiB",
                   expected_memory >> 20, critical_memory >> 20, minimum_memory >> 20);
+diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
+index e24a09d966..98c7218c93 100644
+--- a/src/yuzu/main_window.cpp
++++ b/src/yuzu/main_window.cpp
+@@ -1989,6 +1989,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
+         Settings::UpdateGPUAccuracy();
+         LOG_INFO(Config, "Applied recommended MKW settings after per-game configuration");
+     }
++
++    if (title_id == Settings::OcarinaOfTimeProgramId && !asked_recommended_oot_settings) {
++        asked_recommended_oot_settings = true;
++        use_recommended_oot_settings =
++            QMessageBox::question(
++                this, tr("Recommended Ocarina of Time settings"),
++                tr("Use the recommended performance settings for Ocarina of Time?\n\n"
++                   "FSR3 scaling, GPU accuracy Low, GPU NVDEC, asynchronous presentation and "
++                   "asynchronous shaders.\n\n"
++                   "They apply until Lichii is closed. Your saved settings are not changed."),
++                QMessageBox::Yes | QMessageBox::No, QMessageBox::No) == QMessageBox::Yes;
++        LOG_INFO(Config, "OoT recommended settings accepted: {}", use_recommended_oot_settings);
++    }
++    if (Settings::ApplyOcarinaOfTimePreset(Settings::values, title_id,
++                                           use_recommended_oot_settings)) {
++        QtCommon::system->ApplySettings();
++        Settings::UpdateGPUAccuracy();
++        LOG_INFO(Config, "Applied recommended OoT settings after per-game configuration");
++    }
+     Settings::LogSettings();
+ 
+     if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
+diff --git a/src/yuzu/main_window.h b/src/yuzu/main_window.h
+index 9e98b97ef9..a9a9016364 100644
+--- a/src/yuzu/main_window.h
++++ b/src/yuzu/main_window.h
+@@ -507,6 +507,8 @@ private:
+     MultiplayerState* multiplayer_state = nullptr;
+     bool use_recommended_mkw_settings = false;
+     bool asked_recommended_mkw_settings = false;
++    bool use_recommended_oot_settings = false;
++    bool asked_recommended_oot_settings = false;
+ 
+     GRenderWindow* render_window = nullptr;
+     GameList* game_list = nullptr;
 diff --git a/tools/superbuild/README.md b/tools/superbuild/README.md
 new file mode 100644
 index 0000000000..6e485ee7a0

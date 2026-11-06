@@ -62,6 +62,7 @@ testing only; they are not attached to releases. The PGO profile is
 | Submit deferred work before the split back waits on fences | GPU-split branch, `498345a5` |
 | Hand macros back when the GPU split stops | GPU-split branch, `5b1b5c0f`, conflict resolved |
 | Wake the GPU thread on a queued command | Shakoquo `sharkiix`, `28f594acc7` |
+| OoT recommended settings prompt (session-only) | superbuild UI, `capy/new-user-performance-defaults` values |
 
 ### Additional portable fixes
 
