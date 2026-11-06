@@ -18,6 +18,20 @@
 > included commits, skipped fixes and build instructions. Use a stock build as
 > fallback.
 
+## Credits
+
+This superbuild exists because of the work of:
+
+- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, Bananza page-mark batching, perf9 paths
+- [jojo-chaechae/Eglantine](https://github.com/jojo-chaechae/Eglantine) — GPU-split submit and macro hand-back fixes
+- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix
+- [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
+- [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
+- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
+- The Eglantine, Eden, yuzu and Sudachi contributors
+
+Without these projects and people, this build would not exist.
+
 Lichii is an experimental, open-source Nintendo Switch and Switch 2 emulator written in C++. It builds on Eglantine, Eden, yuzu and Sudachi, preserving their contributions while developing this fork's game compatibility and renderer fixes.
 
 This is an independent fork, not an official release of those upstream projects. Lichii is not affiliated with Nintendo.
