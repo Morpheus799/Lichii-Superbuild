@@ -26,10 +26,10 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..cfcb551dc9 100644
+index bc40878ce6..7ac2315ae1 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,41 @@
+@@ -1,11 +1,46 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -39,14 +39,19 @@ index bc40878ce6..cfcb551dc9 100644
 +checksums.
  
 -## [Unreleased]
-+## Unreleased
++## 261106-v6
  
 -## [0.1.0]
-+- Ocarina of Time now asks once per launch whether to use the recommended
++- Base: `nx2` `588bfa61` — upstream #314 first-run performance defaults,
++  plus #224, #290 and #295.
++- Ocarina of Time now asks on launch whether to use the recommended
 +  performance settings: FSR3 scaling, GPU accuracy Low, GPU NVDEC, async
-+  presentation and async shaders. The settings apply for the session and do
-+  not change saved preferences.
-+- New desktop configs still receive those values as their first-run defaults.
++  presentation and async shaders. They apply for the session and do not change
++  saved preferences.
++- New desktop configs receive those values as their first-run defaults.
++- Keeps the GPU thread wake from Shakoquo's sharkiix work and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
  
 -- Initial release candidate
 +## 261106-v4
@@ -188,7 +193,7 @@ index 0502b3f38e..d488b8c528 100644
  On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..856f7e886e
+index 0000000000..5fc95f0e90
 --- /dev/null
 +++ b/SUPERBUILD.md
 @@ -0,0 +1,145 @@
@@ -219,11 +224,11 @@ index 0000000000..856f7e886e
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `a7a281757da390ce45070e772784e0333831bb25` (2026-11-06)
-+- Upstream `nx2` already contains #224 (async native discard), #273 (AMD shader
-+  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
-+  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
-+  are not re-applied here.
++- Base commit: `588bfa611be9853729682dd78416c66e8d56385a` (2026-11-06)
++- Upstream `nx2` already contains #314 (new-user performance defaults), #224
++  (async native discard), #273 (AMD shader typing/depth sampling), #284 (AV1
++  in MinGW builds), #290 (worker lost-wake fix) and #295 (misaligned SSBO
++  accesses and compute write ordering); those are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
