@@ -3,13 +3,18 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
-## Unreleased
+## 261106-v6
 
-- Ocarina of Time now asks once per launch whether to use the recommended
+- Base: `nx2` `588bfa61` — upstream #314 first-run performance defaults,
+  plus #224, #290 and #295.
+- Ocarina of Time now asks on launch whether to use the recommended
   performance settings: FSR3 scaling, GPU accuracy Low, GPU NVDEC, async
-  presentation and async shaders. The settings apply for the session and do
-  not change saved preferences.
-- New desktop configs still receive those values as their first-run defaults.
+  presentation and async shaders. They apply for the session and do not change
+  saved preferences.
+- New desktop configs receive those values as their first-run defaults.
+- Keeps the GPU thread wake from Shakoquo's sharkiix work and the full
+  superbuild fix set.
+- Windows and Linux, standard and PGO.
 
 ## 261106-v4
 
