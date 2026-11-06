@@ -25,11 +25,11 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `a7a281757da390ce45070e772784e0333831bb25` (2026-11-06)
-- Upstream `nx2` already contains #224 (async native discard), #273 (AMD shader
-  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
-  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
-  are not re-applied here.
+- Base commit: `588bfa611be9853729682dd78416c66e8d56385a` (2026-11-06)
+- Upstream `nx2` already contains #314 (new-user performance defaults), #224
+  (async native discard), #273 (AMD shader typing/depth sampling), #284 (AV1
+  in MinGW builds), #290 (worker lost-wake fix) and #295 (misaligned SSBO
+  accesses and compute write ordering); those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
