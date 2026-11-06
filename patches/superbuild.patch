@@ -93,10 +93,10 @@ index 0000000000..a0496b95b6
 +expose the port to a network. Dumps and captures can contain game assets; keep
 +them local and do not upload `.rdc` captures or dumps publicly.
 diff --git a/README.md b/README.md
-index 0502b3f38e..b283460557 100644
+index 0502b3f38e..6b58dbb60e 100644
 --- a/README.md
 +++ b/README.md
-@@ -12,6 +12,27 @@
+@@ -12,6 +12,28 @@
  
  # Lichii
  
@@ -116,6 +116,7 @@ index 0502b3f38e..b283460557 100644
 +- [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 +- [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
 +- [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
++- [Shakoquo/Lichii-sharkiix-version](https://github.com/Shakoquo/Lichii-sharkiix-version) — GPU thread wake and AMD/OoT tuning experiments
 +- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 +- The Eglantine, Eden, yuzu and Sudachi contributors
 +
@@ -126,10 +127,10 @@ index 0502b3f38e..b283460557 100644
  This is an independent fork, not an official release of those upstream projects. Lichii is not affiliated with Nintendo.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..3c6cc5b3cd
+index 0000000000..46a23d2ad5
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,144 @@
 +# Lichii Superbuild (unofficial)
 +
 +## Credits
@@ -142,6 +143,7 @@ index 0000000000..3c6cc5b3cd
 +- [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 +- [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
 +- [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
++- [Shakoquo/Lichii-sharkiix-version](https://github.com/Shakoquo/Lichii-sharkiix-version) — GPU thread wake and AMD/OoT tuning experiments
 +- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 +- The Eglantine, Eden, yuzu and Sudachi contributors
 +
@@ -156,11 +158,11 @@ index 0000000000..3c6cc5b3cd
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `c9bdbaa38ee522e3124ae05eb56c74be15cf780a` (2026-11-06)
-+- Upstream `nx2` already contains #273 (AMD shader typing/depth sampling),
-+  #284 (AV1 in MinGW builds), #290 (worker lost-wake fix) and #295
-+  (misaligned SSBO accesses and compute write ordering); those are not
-+  re-applied here.
++- Base commit: `a7a281757da390ce45070e772784e0333831bb25` (2026-11-06)
++- Upstream `nx2` already contains #224 (async native discard), #273 (AMD shader
++  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
++  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
++  are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
@@ -192,6 +194,7 @@ index 0000000000..3c6cc5b3cd
 +| Do not download GPU data over newer CPU writes (OoT reticle) | Duck912, `05fe0408` |
 +| Submit deferred work before the split back waits on fences | GPU-split branch, `498345a5` |
 +| Hand macros back when the GPU split stops | GPU-split branch, `5b1b5c0f`, conflict resolved |
++| Wake the GPU thread on a queued command | Shakoquo `sharkiix`, `28f594acc7` |
 +
 +### Additional portable fixes
 +
@@ -560,30 +563,6 @@ index 688fc8fff7..ab9f191f25 100644
      video_core/command_snapshot_suspensions.cpp
      video_core/pending_maps.cpp
      video_core/maxwell_fast_method.cpp
-diff --git a/src/tests/video_core/async_draw_policy.cpp b/src/tests/video_core/async_draw_policy.cpp
-index 042b794f93..3700f0105a 100644
---- a/src/tests/video_core/async_draw_policy.cpp
-+++ b/src/tests/video_core/async_draw_policy.cpp
-@@ -17,6 +17,19 @@ TEST_CASE("Native pending draws are never discarded", "[video_core][async_draw]"
-     }
- }
- 
-+/// EDEN_NX2_ASYNC_DISCARD=1: native draws use the legacy heuristic; non-native draws are unchanged.
-+TEST_CASE("Native pending draws follow the async heuristic when opted in",
-+          "[video_core][async_draw]") {
-+    REQUIRE(Vulkan::CanDiscardPendingDraw(true, true, 0, 0, true));
-+    REQUIRE(Vulkan::CanDiscardPendingDraw(true, false, 7, 7, true));
-+    REQUIRE_FALSE(Vulkan::CanDiscardPendingDraw(true, false, 6, 100, true));
-+    REQUIRE_FALSE(Vulkan::CanDiscardPendingDraw(true, false, 0, 0, true));
-+    // The opt-in never changes non-native draws.
-+    REQUIRE(Vulkan::CanDiscardPendingDraw(false, true, 0, 0, true) ==
-+            Vulkan::CanDiscardPendingDraw(false, true, 0, 0));
-+    REQUIRE_FALSE(Vulkan::CanDiscardPendingDraw(false, false, 0, 0, true));
-+}
-+
- TEST_CASE("Legacy pending draws retain the async heuristic", "[video_core][async_draw]") {
-     REQUIRE(Vulkan::CanDiscardPendingDraw(false, true, 0, 0));
-     REQUIRE(Vulkan::CanDiscardPendingDraw(false, false, 7, 7));
 diff --git a/src/tests/video_core/nx2_written_pages.cpp b/src/tests/video_core/nx2_written_pages.cpp
 new file mode 100644
 index 0000000000..45c283667c
@@ -1443,10 +1422,18 @@ index 2e9250ff53..8b17a1b4cd 100644
      // 128 bytes: x86 spatial prefetchers pull 64-byte lines in pairs. back_waiting and wake are
      // always touched together by both threads, so they share a block.
 diff --git a/src/video_core/gpu_thread.cpp b/src/video_core/gpu_thread.cpp
-index 7f3756953b..31b5513c70 100644
+index 7f3756953b..6719565fb2 100644
 --- a/src/video_core/gpu_thread.cpp
 +++ b/src/video_core/gpu_thread.cpp
-@@ -51,6 +51,7 @@ void ThreadManager::StartThread(VideoCore::RendererBase& renderer, Core::Fronten
+@@ -19,6 +19,7 @@
+ #include "video_core/gpu.h"
+ #include "video_core/gpu_thread.h"
+ #include "video_core/gpu_split.h"
++#include "video_core/nx2_kick.h"
+ #include "video_core/nx2_profile.h"
+ #include "video_core/host1x/host1x.h"
+ #include "video_core/renderer_base.h"
+@@ -51,6 +52,7 @@ void ThreadManager::StartThread(VideoCore::RendererBase& renderer, Core::Fronten
      thread = std::jthread([&](std::stop_token stop_token) {
          const Common::DkbCpuTrace::Registration cpu_trace{Common::DkbCpuTrace::Role::GpuCommand};
          Common::SetCurrentThreadName("GPU");
@@ -1454,6 +1441,23 @@ index 7f3756953b..31b5513c70 100644
          Common::SetCurrentThreadPriority(Common::ThreadPriority::Critical);
          Common::SetCurrentThreadToPerformanceCores();
          system.RegisterHostThread();
+@@ -79,7 +81,7 @@ void ThreadManager::StartThread(VideoCore::RendererBase& renderer, Core::Fronten
+                         std::chrono::microseconds{500}) {
+                         std::this_thread::yield();
+                     } else {
+-                        std::this_thread::sleep_for(std::chrono::milliseconds{1});
++                        VideoCommon::Nx2GpuKick().WaitFor(std::chrono::microseconds{500});
+                     }
+                     continue;
+                 }
+@@ -194,6 +196,7 @@ u64 ThreadManager::PushCommand(CommandData&& command_data, bool block, bool is_a
+     std::unique_lock lk(state.write_lock);
+     const u64 fence{++state.last_fence};
+     state.queue.EmplaceWait(std::move(command_data), fence, block);
++    VideoCommon::Nx2GpuKick().Set();
+ 
+     if (block) {
+         state.cv.wait(lk, thread.get_stop_token(), [this, fence] {
 diff --git a/src/video_core/nx2.h b/src/video_core/nx2.h
 index fc0cfd0487..0324898106 100644
 --- a/src/video_core/nx2.h
@@ -1478,6 +1482,29 @@ index fc0cfd0487..0324898106 100644
      }
  }
  
+diff --git a/src/video_core/nx2_kick.h b/src/video_core/nx2_kick.h
+new file mode 100644
+index 0000000000..0d2523c8af
+--- /dev/null
++++ b/src/video_core/nx2_kick.h
+@@ -0,0 +1,17 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include "common/thread.h"
++
++namespace VideoCommon {
++
++/// Wakes the GPU thread while it polls its suspended channels. It slept 1 ms between polls.
++/// Ported from Shakoquo/Lichii-sharkiix-version.
++inline Common::Event& Nx2GpuKick() {
++    static Common::Event event;
++    return event;
++}
++
++} // namespace VideoCommon
 diff --git a/src/video_core/query_cache/query_cache.h b/src/video_core/query_cache/query_cache.h
 index 1cd92dcfe2..78b7e8a8ff 100644
 --- a/src/video_core/query_cache/query_cache.h
@@ -1683,102 +1710,6 @@ index 9cebc4f29f..b5199080f4 100644
      virtual bool TryCacheInvalidation(DAddr addr, u64 size) {
          if (MustFlushRegion(addr, size, VideoCommon::CacheType::BufferCache)) return false;
          OnCacheInvalidation(addr, size);
-diff --git a/src/video_core/renderer_vulkan/async_draw_policy.h b/src/video_core/renderer_vulkan/async_draw_policy.h
-index 44f9bf7de5..fde11370e1 100644
---- a/src/video_core/renderer_vulkan/async_draw_policy.h
-+++ b/src/video_core/renderer_vulkan/async_draw_policy.h
-@@ -8,16 +8,28 @@
- 
- namespace Vulkan {
- 
-+/// Whether a draw whose graphics pipeline is still building may be skipped (asynchronous
-+/// shaders) instead of waiting for the build.
-+/// @param native         The draw comes from a Switch 2 (native Turing macro) program.
-+/// @param depth_enabled  The depth test is on for the draw.
-+/// @param index_count    Index count of the draw.
-+/// @param vertex_count   Vertex count of the draw.
-+/// @param discard_native Let native draws follow the heuristic too (EDEN_NX2_ASYNC_DISCARD=1).
-+/// @return True when the draw may be skipped.
- constexpr bool CanDiscardPendingDraw(bool native, bool depth_enabled, u32 index_count,
--                                    u32 vertex_count) {
--    // Native draws can produce persistent resources, even with depth enabled.
--    if (native) {
-+                                    u32 vertex_count, bool discard_native = false) {
-+    // Native draws can produce persistent resources, even with depth enabled. They are only
-+    // skipped when the user opts in (EDEN_NX2_ASYNC_DISCARD=1), trading a possible missing
-+    // effect for no stall while a new pipeline builds.
-+    if (native && !discard_native) {
-         return false;
-     }
-     // Preserve the legacy async-shader heuristic.
-     return depth_enabled || (index_count > 6 && vertex_count > 6);
- }
- 
-+/// Whether a native pipeline's SPIR-V emission is deferred to a worker: only while fewer than
-+/// `capacity` emissions are pending.
- constexpr bool DefersShaderEmission(bool native, size_t pending, size_t capacity) {
-     return native && pending < capacity;
- }
-diff --git a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
-index 3e1c595493..095bd4c1e6 100644
---- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
-+++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
-@@ -1196,6 +1196,9 @@ void PipelineCache::EvictUnusedPipelines() {
-              EvictAfterFrames, graphics_cache.size());
- }
- 
-+/// Returns `pipeline` when it is built or the current draw must wait for it, and nullptr when the
-+/// draw may be skipped while it builds (asynchronous shaders; native draws only with
-+/// EDEN_NX2_ASYNC_DISCARD=1). Each nullptr returned for an unbuilt pipeline is counted for the log.
- GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const noexcept {
-     if (pipeline->IsBuilt()) {
-         return pipeline;
-@@ -1203,11 +1206,31 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
-     if (!use_asynchronous_shaders) {
-         return pipeline;
-     }
-+    // EDEN_NX2_ASYNC_DISCARD=1: skip native draws whose pipeline is still building instead of
-+    // waiting for it (experimental; the draw may be missing for a frame or more).
-+    /// Reads EDEN_NX2_ASYNC_DISCARD once and logs when it is on.
-+    static const bool discard_native = [] {
-+        const char* value = std::getenv("EDEN_NX2_ASYNC_DISCARD");
-+        const bool enabled = value != nullptr && value[0] == '1';
-+        if (enabled) {
-+            LOG_INFO(Render_Vulkan, "EDEN_NX2_ASYNC_DISCARD: native draws skip unbuilt pipelines");
-+        }
-+        return enabled;
-+    }();
-     const auto& draw_state = maxwell3d->draw_manager.draw_state;
-     const bool discard = CanDiscardPendingDraw(maxwell3d->GetNativeMacroEngine().native_turing,
-                                               maxwell3d->regs.zeta_enable != 0,
-                                               draw_state.draw_element_count,
--                                              draw_state.draw_element_count);
-+                                              draw_state.draw_element_count, discard_native);
-+    if (discard) {
-+        static std::atomic<u64> skipped{};
-+        if ((skipped.fetch_add(1, std::memory_order_relaxed) & 255) == 0) {
-+            // Counts lookups, not draws: a draw state can look its pipeline up more than once.
-+            LOG_INFO(Render_Vulkan,
-+                     "Async shaders: {} pipeline lookups skipped for unbuilt pipelines",
-+                     skipped.load(std::memory_order_relaxed));
-+        }
-+    }
-     return discard ? nullptr : pipeline;
- }
- 
-diff --git a/src/video_core/renderer_vulkan/vk_pipeline_cache.h b/src/video_core/renderer_vulkan/vk_pipeline_cache.h
-index 35d1acf159..08f00f2436 100644
---- a/src/video_core/renderer_vulkan/vk_pipeline_cache.h
-+++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.h
-@@ -138,6 +138,8 @@ public:
- private:
-     [[nodiscard]] GraphicsPipeline* CurrentGraphicsPipelineSlowPath();
- 
-+    /// Returns `pipeline` when it is built or its draw must wait for it, nullptr when the draw
-+    /// may be skipped while it builds (asynchronous shaders, CanDiscardPendingDraw).
-     [[nodiscard]] GraphicsPipeline* BuiltPipeline(GraphicsPipeline* pipeline) const noexcept;
- 
-     std::unique_ptr<GraphicsPipeline> CreateGraphicsPipeline();
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 index 628dd72d97..21cd786b85 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
