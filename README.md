@@ -27,6 +27,7 @@ This superbuild exists because of the work of:
 - [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix
 - [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 - [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
+- [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
 - [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 - The Eglantine, Eden, yuzu and Sudachi contributors
 

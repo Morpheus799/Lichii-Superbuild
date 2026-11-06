@@ -9,6 +9,7 @@ This build exists because of the work of:
 - [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix
 - [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 - [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
+- [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
 - [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 - The Eglantine, Eden, yuzu and Sudachi contributors
 
@@ -88,6 +89,8 @@ mja00 `be437dd4` and Nolar `63650298` variants are not re-applied on top of it.
 
 - `EDEN_NX2_PRELOAD_ALL_PIPELINES=1` is preset in the packaged
   `nx2_switches.txt`.
+- `EDEN_NX2_ASYNC_DISCARD=1` is preset; native draws skip unbuilt pipelines
+  instead of stalling (experimental, from PR #224).
 - `EDEN_NX2_COMPUTE_MAPPING_SIZED=1` restores the old compute-buffer sizing for
   A/B testing of the OoT overexposure candidate.
 - `EDEN_NX2_TC_MINIMUM_MIB` controls the texture-cache collection threshold.
