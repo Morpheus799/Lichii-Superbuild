@@ -3,6 +3,19 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## v15
+
+- Base: `nx2` `b7ff181f` — adds #606 NVIDIA DLSS Super Resolution for OoT
+  and #569 task/mesh pipelines through compute without `VK_EXT_mesh_shader`.
+- PGO audited: object files differ between normal and PGO, and Clang reads
+  `eglantine.profdata` (50,134 Itanium-mangled names). Windows PGO uses
+  `-fprofile-use=eglantine.profdata`; Linux PGO uses Clang 23 + the same
+  profile, which is exactly upstream's Linux PGO method. Upstream's Windows
+  PGO (clang-cl + ThinLTO + `lichii-windows.profdata`, MSVC-ABI names) is not
+  usable with our MinGW toolchain; ThinLTO was tested and reverted because
+  MSYS2 has no `llvm-ar` to index bitcode archives.
+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
+
 ## v14
 
 - Base: `nx2` `d5494116` — a 27-commit upstream batch. The grass/foliage fix
