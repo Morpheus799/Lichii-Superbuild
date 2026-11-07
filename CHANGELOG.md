@@ -3,6 +3,17 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## v11
+
+- Base: `nx2` `32886f75` — upstream #351 table-pointer pool binding, #432
+  NaN min/max, #436 QMD release formats, #504 updater, #255/#497 microphone
+  capture and #499 NUP metadata.
+- Both Windows packages now use bundled static FFmpeg, removing the MSYS2
+  `libva.dll` false positive.
+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
+  superbuild fix set.
+- Windows and Linux, standard and PGO.
+
 ## v10
 
 - Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte

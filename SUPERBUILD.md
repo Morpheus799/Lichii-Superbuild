@@ -4,14 +4,14 @@
 
 This build exists because of the work of:
 
-- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, Bananza page-mark batching, perf9 paths
+- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, compatibility reports, first-run performance defaults, Bananza page-mark batching, perf9 paths
 - [jojo-chaechae/Eglantine](https://github.com/jojo-chaechae/Eglantine) — GPU-split submit and macro hand-back fixes
-- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix
+- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix and near-leaf pointer fix
 - [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 - [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
+- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 - [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
 - [Shakoquo/Lichii-sharkiix-version](https://github.com/Shakoquo/Lichii-sharkiix-version) — GPU thread wake and AMD/OoT tuning experiments
-- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 - The Eglantine, Eden, yuzu and Sudachi contributors
 
 Curated performance and correctness fixes on top of
@@ -29,26 +29,28 @@ a stock build as fallback.
 - Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
   #295, #149, #185, #197, #203, #215, #232, #241, #397, #398, #410, #412,
   #413, #414, #418, #425, #429, #433, #435, #438, #439, #442, #443, #444,
-  #482, #485, #490, plus #432 (NaN min/max), #436 (QMD release formats),
-  #351 (table-pointer pool binding), #504 (updater), #255/#497 (microphone)
-  and #499 (NUP metadata). Those are not re-applied here.
+  #482, #485, #490, #432 (NaN min/max), #436 (QMD release formats), #351
+  (table-pointer pool binding), #504 (updater), #255/#497 (microphone) and
+  #499 (NUP metadata). Those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
 
 - `nx2` — untouched upstream snapshot used as the base
-- `superbuild` — current curated build, including all portable AMD-relevant fixes
-- `legacy/superbuild-55532` — historical 55532-based branch, kept for reference
+- `superbuild` — current curated build, including all portable fixes
 
-This repository is a standalone private mirror, not a GitHub fork-network fork.
-AMD-relevant fixes are generic and fused into the single `superbuild` branch;
-there is no separate AMD variant.
+This repository is a standalone public mirror, not a GitHub fork-network fork.
+There is no separate AMD variant.
 
 ## Releases
 
-PGO is the only published build. Normal builds are used for validation and A/B
-testing only; they are not attached to releases. The PGO profile is
-`eglantine.profdata`, built with Clang 23 and LLD.
+Standard and PGO builds are published for Windows and Linux x86_64. PGO is the
+recommended package. The PGO profile is `eglantine.profdata`, built with Clang 23
+and LLD, using bundled static FFmpeg to avoid the MSYS2 `libva.dll` false
+positive.
+
+The updater is **not wired to this repository yet**. It remains disabled for
+local builds until its release feed and asset naming are adapted here.
 
 ## Included fixes
 
