@@ -202,10 +202,10 @@ index 48e0ad1f2c..e9d00c5725 100644
  On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..5eb7e21925
+index 0000000000..d311df4d12
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,148 @@
 +# Lichii Superbuild (unofficial)
 +
 +## Credits
@@ -233,13 +233,14 @@ index 0000000000..5eb7e21925
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `4c173bb792eca0c89fb9e93e3c81122dc68f1d3e` (2026-11-06)
-+- Upstream `nx2` already contains #303 (opt-in desktop compatibility reports),
-+  #287 (Linux AppImage switch discovery and package defaults), #314 (new-user
-+  performance defaults), #224 (async native discard), #273 (AMD shader
-+  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
-+  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
-+  are not re-applied here.
++- Base commit: `9fa4a71fa051aa857e2d8f370aa31739a4f062c2` (2026-11-07)
++- Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
++  #295, plus #149 (OoT split deadlock/FSR3/RED-SURED), #185 (deferred clears),
++  #197 (compute rejection path), #203 (LayeredFS NUP), #215 (query waits),
++  #232 (hybrid CPU cores), #241 (aligned uniform retry), #397 (CPU-write
++  download guard), #398 (TLD4 second descriptor), #410 (paired cbuf pointer),
++  #412 (GPU back bookkeeping), #413 (lock-free flush check) and #414 (quad
++  index growth). Those are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
@@ -350,7 +351,7 @@ index 0000000000..5eb7e21925
 +`superbuild`.
 +
 +```bash
-+git checkout 4c173bb7
++git checkout 9fa4a71f
 +git apply patches/superbuild.patch
 +```
 diff --git a/dist/nx2_switches.txt b/dist/nx2_switches.txt
@@ -1053,7 +1054,7 @@ index 7327240629..13458f08bd 100644
              }
              const u32 packed_size = static_cast<u32>(next_qword);
 diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
-index d60958cbd7..c90fc1d59e 100644
+index d60958cbd7..65e4d3a9a4 100644
 --- a/src/video_core/buffer_cache/buffer_cache_base.h
 +++ b/src/video_core/buffer_cache/buffer_cache_base.h
 @@ -602,7 +602,8 @@ private:
@@ -1066,20 +1067,6 @@ index d60958cbd7..c90fc1d59e 100644
  
      void TraceTablePointer(bool compute, size_t stage, size_t ssbo_index, u32 cbuf_index,
                             u32 cbuf_offset, u32 indirect_offset, GPUVAddr holder,
-@@ -630,6 +631,13 @@ private:
-     /// Re-dirties repacked vertex buffers whose source data was written since they were bound.
-     void RefreshRepackedVertexBuffers();
- 
-+    /// CPU writes collected but not yet applied (SetPendingCpuWrites).
-+    [[nodiscard]] Common::RangeSet<DAddr> PendingCpuWriteRanges();
-+
-+    /// Writes downloaded bytes to guest memory, except over `cpu_written`.
-+    void WriteDownloadedMemory(const Common::RangeSet<DAddr>& cpu_written, DAddr device_addr,
-+                               const u8* data, u64 size);
-+
-     void InlineMemoryImplementation(DAddr dest_address, size_t copy_size,
-                                     std::span<const u8> inlined_buffer);
- 
 diff --git a/src/video_core/engines/kepler_compute.cpp b/src/video_core/engines/kepler_compute.cpp
 index 67d87a0abf..f4429ff379 100644
 --- a/src/video_core/engines/kepler_compute.cpp
@@ -1199,17 +1186,14 @@ index f32fab777d..f537cb72cd 100644
  #include "core/perf_stats.h"
  #include "video_core/cdma_pusher.h"
 diff --git a/src/video_core/gpu.h b/src/video_core/gpu.h
-index 55988006d7..27a26b2c0b 100644
+index 55988006d7..e943937209 100644
 --- a/src/video_core/gpu.h
 +++ b/src/video_core/gpu.h
-@@ -153,6 +153,10 @@ public:
+@@ -153,6 +153,7 @@ public:
      void ForEachPendingCpuWrite(const std::function<void(DAddr, size_t)>& callback);
      /// Returns true when guest CPU writes to the range are collected but not yet applied.
      [[nodiscard]] bool HasPendingCPUWrites(DAddr addr, u64 size);
 +
-+    /// Calls `callback` for each CPU write into GPU-written memory that InvalidateGPUCache has not
-+    /// applied yet.
-+    void ForEachPendingCpuWrite(const std::function<void(DAddr, size_t)>& callback);
      /// Signal the ending of command list.
      void OnCommandListEnd();
  
@@ -1591,27 +1575,10 @@ index d4801cc140..a94473afc0 100644
  
      struct QueryCacheBaseImpl;
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-index f77bfaa599..8a0cf56565 100644
+index f77bfaa599..1b30a87db4 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-@@ -1729,6 +1729,16 @@ void RasterizerVulkan::OnCacheInvalidation(DAddr addr, u64 size) {
-     pipeline_cache.InvalidateRegion(addr, size);
- }
- 
-+void RasterizerVulkan::OnCacheInvalidations(std::span<const std::pair<DAddr, u64>> ranges) {
-+    {
-+        std::scoped_lock lock{buffer_cache.mutex};
-+        buffer_cache.ClaimCpuWrites(ranges);
-+    }
-+    for (const auto& [addr, size] : ranges) {
-+        OnCacheInvalidation(addr, size);
-+    }
-+}
-+
- bool RasterizerVulkan::TryCacheInvalidation(DAddr addr, u64 size) {
-     if (addr == 0 || size == 0) return true;
-     {
-@@ -1786,7 +1796,16 @@ void RasterizerVulkan::SignalReference() {
+@@ -1786,7 +1786,16 @@ void RasterizerVulkan::SignalReference() {
  }
  
  void RasterizerVulkan::ReleaseFences(bool force) {
