@@ -48,9 +48,13 @@ a stock build as fallback.
   (NVIDIA DLSS Super Resolution for OoT), #569 (task/mesh pipelines
   through compute without VK_EXT_mesh_shader), #616 (OoT sharpening-network
   bypass) and #574 (CI ccache). Those are not re-applied here.
-- PR #635 (OoT DLSS glow/particle history fix) is carried locally as two
-  commits; it is still open upstream. If zortos lands it, rebase and drop our
-  copy.
+- PR #635 (OoT DLSS glow/particle history fix) and the follow-up R16F bias-mask
+  and DLSS preset E/F commits from `capy/oot-dlss-effects-mask-r16f` are carried
+  locally. PR #635 is still open upstream; PR #644 (the R16F follow-up) was
+  closed as an untested draft. If zortos lands either, rebase and drop our copy.
+- The `capy/cutscene-av-sync` package (7 commits: movie pacing, late-frame drop,
+  video input queue, Switch 2 read throttle, three-thread GSV service) is carried
+  locally; no upstream PR is open for it yet.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches

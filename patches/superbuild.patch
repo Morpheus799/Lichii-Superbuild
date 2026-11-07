@@ -26,195 +26,126 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..ab26ab2803 100644
+index bc40878ce6..94c3f5f226 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,179 @@
+@@ -1,11 +1,110 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
 -`## [X.Y.Z]` section (release candidates use the section of the version they are a candidate for).
 -New entries go under `## [Unreleased]`; `tools/ci/bump-version.sh` turns them into a version section.
-+All releases are unofficial builds. See the GitHub releases for assets and
-+checksums.
++All releases are unofficial builds. See the GitHub releases for assets and checksums.
  
 -## [Unreleased]
-+## v16
++## v17
  
 -## [0.1.0]
-+- Base: `nx2` `92f0212` — adds #616 OoT option to bypass the game's sharpening
-+  anti-aliasing network (imports #319) and #574 (CI ccache, no binary change).
-+- Carries PR #635 (unmerged upstream): keeps Navi's glow, fireflies and dust out
-+  of NVIDIA DLSS history, fixing night smear and flicker from #606. New
-+  `ocarina_dlss_bias.comp` / `ocarina_dlss_effects.comp` shaders and Streamline
-+  DLSS hooks; indirect dispatch binds are no longer deferred while effects are
-+  marked.
-+- NVIDIA DLSS enabled on MinGW Windows. Upstream gates `ENABLE_NVIDIA_DLSS` on
-+  `MSVC AND ARCHITECTURE_x86_64`, so the checkbox was hidden and the #606/#635
-+  DLSS code was compiled out of our builds. Relaxed to
-+  `WIN32 AND ARCHITECTURE_x86_64` and built against the bundled Streamline
-+  headers. Needs NVIDIA Streamline loader and DLSS plugins on the user's PC;
-+  Linux builds are unchanged.
-+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
++- Ocarina of Time cutscenes now stay in sync with their audio below 60 fps: late
++  movie frames are dropped, movie pacing is always on, and Switch 2 titles no
++  longer pay the SD-card read throttle that delayed streamed video.
++- NVIDIA DLSS for OoT: the effects mask is now handed to Streamline in a format
++  it accepts, so the glow and particle fix works. DLSS presets E and F are now
++  selectable.
++- Windows and Linux, standard and PGO.
  
 -- Initial release candidate
++## v16
++
++- NVIDIA DLSS is now available on Windows. Enable it in Graphics settings and
++  use the download button under the option to fetch NVIDIA's Streamline and DLSS
++  files. Requires a GeForce RTX card; AMD and Intel keep FSR 3.1.
++- Option to bypass Ocarina of Time's sharpening anti-aliasing network.
++- Fix for night-time smear and flicker from Navi's glow, fireflies and dust when
++  DLSS is on.
++- Windows and Linux, standard and PGO.
++
 +## v15
 +
-+- Base: `nx2` `b7ff181f` — adds #606 NVIDIA DLSS Super Resolution for OoT
-+  and #569 task/mesh pipelines through compute without `VK_EXT_mesh_shader`.
-+- PGO audited: object files differ between normal and PGO, and Clang reads
-+  `eglantine.profdata` (50,134 Itanium-mangled names). Windows PGO uses
-+  `-fprofile-use=eglantine.profdata`; Linux PGO uses Clang 23 + the same
-+  profile, which is exactly upstream's Linux PGO method. Upstream's Windows
-+  PGO (clang-cl + ThinLTO + `lichii-windows.profdata`, MSVC-ABI names) is not
-+  usable with our MinGW toolchain; ThinLTO was tested and reverted because
-+  MSYS2 has no `llvm-ar` to index bitcode archives.
-+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
++- Adds NVIDIA DLSS Super Resolution for Ocarina of Time and task/mesh pipelines
++  through compute on GPUs without `VK_EXT_mesh_shader`.
++- PGO builds verified and kept for Windows and Linux.
++- Windows and Linux, standard and PGO.
 +
 +## v14
 +
-+- Base: `nx2` `d5494116` — a 27-commit upstream batch. The grass/foliage fix
-+  is now upstream as #551, so our 14 carried `capy/oot-hyrule-grass-fix`
-+  commits were dropped along with the texture-cache OOM, framebuffer-limit,
-+  GPU-thread-wake and HMMA-unroll commits that upstream absorbed (#440, #427,
-+  #446, #174). Our superbuild layer is now much smaller.
-+- New upstream: #588 TXD/ATOMG shadow registers, #584 Dynamic FPS down to
-+  10 fps, #585 sysmix audio, #580 page-table walk reuse, #550 disk-cache
-+  pipelines, #465 bounded unbuilt-pipeline wait, #333 page-table sizing,
-+  #481 sorted RangeSet, #250 skip empty invalidations, #245 bindless handle
-+  words, #495 descriptor payload growth, #530 Linux core pinning, #270
-+  present FPS limit, #365 Overwolf hook disable, #484 maximized window,
-+  #511 MIME install, #160 ZBIC failure, #221 IPSwitch lines.
-+- Also #582/#583 HMMA on `VK_KHR_cooperative_matrix` (OoT +12-24% standing/walking, RDNA4 41 -> 60 fps) and #587 float16 on the device so LSFG frame generation loads.
-+- Keeps our unique layer: OoT recommended-settings prompt, GPU-split
-+  scheduler/fence fixes, query-cache fence-flagged reports, texture-cache
-+  minimum threshold, `EDEN_NX2_PRELOAD_ALL_PIPELINES` and
-+  `EDEN_NX2_ASYNC_DISCARD` presets, and the updater wired to this repository.
-+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
++- The OoT grass/foliage fix is now upstream: Hyrule Field's grass stays dense and
++  Castle Town's near hedges keep their leaves.
++- Cooperative-matrix HMMA for OoT (+12–24% standing/walking, RDNA4 41 → 60 fps),
++  float16 support for LSFG frame generation, Dynamic FPS down to 10 fps, a 50 µs
++  GPU-thread poll, texture-cache out-of-memory handling and framebuffer limits.
++- Windows and Linux, standard and PGO.
 +
 +## v13
 +
-+- Base: `nx2` `71268a75` — upstream #509 in-place AppImage updater with one
-+  rollback copy, and #520 clang-cl build-check CI.
-+- **OoT Hyrule Field grass fixed.** Carries all 14 commits of zortos's
-+  `capy/oot-hyrule-grass-fix` (`dfde7585e2`), the integration of open fix chain
-+  PR #434 / #395 / #421: 64 storage buffers per stage, 64-bit binding masks,
-+  rebuild of compute translations whose null pointer slots fill later, keeping
-+  every previously bound pointer on rebuild, and per-stage storage limits.
-+  Castle Town's near hedges keep their leaves and Hyrule Field's grass stays
-+  dense. The branch is still unmerged into `nx2`.
-+- Dropped the v12 `capy/oot-hyrule-grass-ab` A/B experiment: with the fix in
-+  place there is nothing left to bisect.
-+- Updater still points at this repository (`vN` tags), now with in-place
-+  AppImage update support from #509.
-+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
++- In-place AppImage updates with one rollback copy.
++- Windows and Linux, standard and PGO.
 +
 +## v12
 +
-+- Base: `nx2` `91d1aada` — upstream #512 device-loss diagnostics, #515 mesh
-+  point/line output, #518/#519/#526 clang-cl ThinLTO release builds,
-+  #524 `-fno-unswitch-loops` and #537 frame-generation status.
-+- Updater now points at this repository: `callme-sy/Lichii-Superbuild`, `vN`
-+  tags and `Lichii-vN-<platform>` assets.
-+- Carries `capy/oot-hyrule-grass-ab` A/B diagnostics for the OoT Hyrule Field
-+  grass regression. Four off-by-default switches, no change to stock behaviour;
-+  the full fix remains open upstream as PR #434.
-+- Both Windows packages use bundled static FFmpeg.
-+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
-+  superbuild fix set.
++- The built-in updater now points at this repository and finds `Lichii-vN-…`
++  releases.
++- Added device-loss diagnostics and frame-generation status in the status bar.
++- Windows packages use bundled static FFmpeg.
 +- Windows and Linux, standard and PGO.
 +
 +## v11
 +
-+- Base: `nx2` `32886f75` — upstream #351 table-pointer pool binding, #432
-+  NaN min/max, #436 QMD release formats, #504 updater, #255/#497 microphone
-+  capture and #499 NUP metadata.
-+- Both Windows packages now use bundled static FFmpeg, removing the MSYS2
-+  `libva.dll` false positive.
-+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
-+  superbuild fix set.
++- Upstream fixes for OoT far-field sky haze, NaN handling, QMD release formats,
++  microphone capture and NUP metadata.
++- Windows packages use bundled static FFmpeg.
 +- Windows and Linux, standard and PGO.
 +
 +## v10
 +
-+- Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
-+  usage tracking, #429 32-bit global atomics, #433 dynamic per-tap offsets,
-+  #438 macro hand-back, #439 Turing macro RAM, #444 gathered-buffer lifetime,
-+  #435 address-wrap rejection, #443/#442 game-list fixes and #418 core pinning.
-+- Keeps the v9 candidate fixes that remain unmerged.
-+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
-+  superbuild fix set.
++- 43 upstream commits: 64-byte usage tracking, 32-bit global atomics, dynamic
++  per-tap offsets, macro hand-back, Turing macro RAM, gathered-buffer lifetime,
++  address-wrap rejection and game-list crash fixes.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v9
 +
-+- Base: `nx2` `9fa4a71` (unchanged from v8).
-+- Adds reviewed `capy/*` fixes: NaN-defined shader min/max/clamp, QMD release
-+  formats, framebuffer and stream-buffer limits, texture-cache OOM retries,
-+  texture-cache debug stats off, and mesh-shader skip logging.
-+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
-+  superbuild fix set.
++- Reviewed candidate fixes: NaN-defined min/max, QMD release formats,
++  framebuffer limits, texture-cache OOM retries and mesh-shader logging.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v8
 +
-+- Base: `nx2` `9fa4a71` — upstream #149 (OoT split deadlock/FSR3/RED-SURED),
-+  #412 (GPU back bookkeeping), #414 (quad index growth), #413 (lock-free flush
-+  check), #410 (paired cbuf pointer), #215 (query waits), #197, #241, #398,
-+  #185, #203, #397 (CPU-write guard) and #232 (hybrid CPU cores).
-+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
-+  superbuild fix set.
++- Upstream OoT split-deadlock fix, GPU back bookkeeping, quad index growth,
++  paired cbuf pointer and CPU-write download guard.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v7
 +
-+- Base: `nx2` `4c173bb7` — upstream #303 opt-in desktop compatibility reports
-+  and #287 Linux AppImage switch discovery, plus all earlier upstream fixes.
-+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
-+  superbuild fix set.
++- Opt-in desktop compatibility reports and Linux AppImage switch discovery.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v6
 +
-+- Base: `nx2` `588bfa61` — upstream #314 first-run performance defaults,
-+  plus #224, #290 and #295.
-+- Ocarina of Time now asks on launch whether to use the recommended
-+  performance settings: FSR3 scaling, GPU accuracy Low, GPU NVDEC, async
-+  presentation and async shaders. They apply for the session and do not change
-+  saved preferences.
-+- New desktop configs receive those values as their first-run defaults.
-+- Keeps the GPU thread wake from Shakoquo's sharkiix work and the full
-+  superbuild fix set.
++- Ocarina of Time now asks on launch whether to use recommended performance
++  settings (FSR3, GPU accuracy Low, GPU NVDEC, async presentation and async
++  shaders). Session-only; saved preferences are unchanged. New desktop configs
++  receive those values as first-run defaults.
++- GPU thread wake from the sharkiix work.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v4
 +
-+- Base: `nx2` `a7a28175` — upstream PR #224 (async native discard), #290
-+  (worker lost-wake fix), #295 (misaligned SSBO accesses and compute write
-+  ordering).
-+- Added GPU thread wake from Shakoquo's sharkiix work: queued commands wake the
-+  GPU thread immediately; the poll interval is 500 µs instead of 1 ms.
-+- Keeps the full superbuild fix set: OoT reticle, GPU split, Bananza page-mark
-+  batching, Frizti ports, query timing, HMMA unroll, AMD-oriented fixes.
++- Async native draw discard, worker lost-wake fix, misaligned SSBO and compute
++  write ordering fixes.
++- GPU thread wake: queued commands wake the GPU thread immediately.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v3
 +
-+- Base: `nx2` `c9bdbaa3` — upstream #290 and #295.
-+- Added PR #224 `EDEN_NX2_ASYNC_DISCARD=1`: native draws skip unbuilt pipelines
-+  instead of stalling; measured `draws held for unbuilt pipelines` dropped from
-+  816 ms to 0–8.7 ms per 10 s.
-+- Keeps the full superbuild fix set.
++- Async native discard stops draws stalling on unbuilt pipelines.
 +- Windows and Linux, standard and PGO.
 +
 +## 261106-v2
 +
-+- Base: `nx2` `e219d24c` — upstream #273 (AMD shader typing, atomic retries,
-+  compiler stalls) and #284 (MinGW AV1).
 +- First release with the full curated superbuild fix set: Bananza page-mark
-+  batching, OoT reticle, GPU split, Frizti ports, mja00 fixes, Nolar AMD fixes.
++  batching, OoT reticle, GPU split, Frizti ports, mja00 fixes and AMD fixes.
 +- Windows and Linux, standard and PGO.
-+- Includes reference builds from `e219d24c` and `55532f2d`.
 diff --git a/CMakeModules/GenerateSCMRev.cmake b/CMakeModules/GenerateSCMRev.cmake
 index bdd14dbf42..011ca069b6 100644
 --- a/CMakeModules/GenerateSCMRev.cmake
@@ -329,10 +260,10 @@ index 48e0ad1f2c..a2775eec3f 100644
  This is an independent fork, not an official release of those upstream projects. Lichii is not affiliated with Nintendo.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..c8e9973138
+index 0000000000..9d9494c866
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,180 @@
+@@ -0,0 +1,184 @@
 +# Lichii Superbuild (unofficial)
 +
 +## Credits
@@ -383,9 +314,13 @@ index 0000000000..c8e9973138
 +  (NVIDIA DLSS Super Resolution for OoT), #569 (task/mesh pipelines
 +  through compute without VK_EXT_mesh_shader), #616 (OoT sharpening-network
 +  bypass) and #574 (CI ccache). Those are not re-applied here.
-+- PR #635 (OoT DLSS glow/particle history fix) is carried locally as two
-+  commits; it is still open upstream. If zortos lands it, rebase and drop our
-+  copy.
++- PR #635 (OoT DLSS glow/particle history fix) and the follow-up R16F bias-mask
++  and DLSS preset E/F commits from `capy/oot-dlss-effects-mask-r16f` are carried
++  locally. PR #635 is still open upstream; PR #644 (the R16F follow-up) was
++  closed as an untested draft. If zortos lands either, rebase and drop our copy.
++- The `capy/cutscene-av-sync` package (7 commits: movie pacing, late-frame drop,
++  video input queue, Switch 2 read throttle, three-thread GSV service) is carried
++  locally; no upstream PR is open for it yet.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
@@ -645,8 +580,64 @@ index 951d99cc57..3005df9093 100644
          LOG_DEBUG(Core, "Shutdown OK");
      }
  
+diff --git a/src/core/hle/service/am/am.cpp b/src/core/hle/service/am/am.cpp
+index 86d9d52e34..81a075778c 100644
+--- a/src/core/hle/service/am/am.cpp
++++ b/src/core/hle/service/am/am.cpp
+@@ -25,6 +25,13 @@ void LoopProcess(Core::System& system) {
+         "appletAE", std::make_shared<IAllSystemAppletProxiesService>(system, window_system));
+     server_manager->RegisterNamedService(
+         "appletOE", std::make_shared<IApplicationProxyService>(system, window_system));
++    // The Switch 2 graphics system (nx2:gsv, from ISelfController) and every session it hands out
++    // (vi2, vdecsvc, syncpt, gpu, nvsrv) are served here. vi2's PresentClientBuffer blocks until
++    // the frame's fence and the next vblank (~14 ms of each 16.7 ms frame at 60 fps), and with one
++    // thread every other request queued behind it: Ocarina of Time's movie thread got its decoder
++    // images back at ~33 fps while presenting at 60, and the video fell ~10 s behind its audio.
++    // Each service keeps its own lock, as with bsdsocket's extra threads.
++    server_manager->StartAdditionalHostThreads("am", 2);
+     ServerManager::RunServer(std::move(server_manager));
+ }
+ 
+diff --git a/src/core/hle/service/filesystem/fsp/fs_i_storage.cpp b/src/core/hle/service/filesystem/fsp/fs_i_storage.cpp
+index 8541c17817..539a12dd01 100644
+--- a/src/core/hle/service/filesystem/fsp/fs_i_storage.cpp
++++ b/src/core/hle/service/filesystem/fsp/fs_i_storage.cpp
+@@ -8,6 +8,7 @@
+ #include <chrono>
+ #include <thread>
+ 
++#include "common/settings.h"
+ #include "core/file_sys/errors.h"
+ #include "core/hle/service/cmif_serialization.h"
+ #include "core/hle/service/filesystem/fsp/fs_i_storage.h"
+@@ -35,13 +36,19 @@ Result IStorage::Read(
+     R_UNLESS(length >= 0, FileSys::ResultInvalidSize);
+     R_UNLESS(offset >= 0, FileSys::ResultInvalidOffset);
+ 
+-    const auto now = std::chrono::steady_clock::now();
+-    if (now < next_read_tick) {
+-        std::this_thread::sleep_for(next_read_tick - now);
++    // The 40 MB/s throttle emulates a Switch 1 card (Eden cbd4cf2d8c, Mario Strikers' intro).
++    // Switch 2 storage is many times faster, and a Switch 2 title that streams a movie with
++    // hundreds of reads a second (Ocarina of Time's opening: 300-460) sleeps most of each second
++    // on the thread that also hands decoder images back, so its video falls seconds behind.
++    if (!Settings::CurrentProgramIsSwitch2()) {
++        const auto now = std::chrono::steady_clock::now();
++        if (now < next_read_tick) {
++            std::this_thread::sleep_for(next_read_tick - now);
++        }
++        next_read_tick = std::chrono::steady_clock::now() +
++                         std::chrono::nanoseconds{std::min(length, MaxChargedReadSize) *
++                                                  1'000'000'000 / ReadBytesPerSecond};
+     }
+-    next_read_tick = std::chrono::steady_clock::now() +
+-                     std::chrono::nanoseconds{std::min(length, MaxChargedReadSize) *
+-                                              1'000'000'000 / ReadBytesPerSecond};
+ 
+     // Read the data from the Storage backend
+     backend->Read(out_bytes.data(), length, offset);
 diff --git a/src/core/hle/service/nx2_gsv.h b/src/core/hle/service/nx2_gsv.h
-index ce0219d37e..4198f7863c 100644
+index ce0219d37e..a0c896cc2b 100644
 --- a/src/core/hle/service/nx2_gsv.h
 +++ b/src/core/hle/service/nx2_gsv.h
 @@ -80,6 +80,21 @@
@@ -694,7 +685,192 @@ index ce0219d37e..4198f7863c 100644
          const u32 refresh_rate = (timing & 0xffff) >= 30 && (timing & 0xffff) <= 240 ? timing & 0xffff : 60;
          if (trace) {
              m_frame_trace.interval = swap_interval;
-@@ -3059,6 +3079,7 @@ private:
+@@ -2650,6 +2670,11 @@ private:
+     static constexpr u32 NoSyncpoint = ~0U;
+     static constexpr size_t MaxDecodedAhead = 2; // decoded frames held while no image is free
+     static constexpr u32 HostSyncpoints = 192;   // Tegra::Host1x::SyncpointManager
++    // Movie pacing (see DropOvertakenFrames): a longer gap between acquires is a pause, a longer
++    // lag a jump in the stream; both restart the clock instead of dropping frames.
++    static constexpr s64 PauseGap = 1'000'000;   // us
++    static constexpr s64 MaxCatchUp = 3'000'000; // us
++    static constexpr u32 MaxDroppedInARow = 30;
+ 
+     void Log(HLERequestContext& ctx, std::string_view what) {
+         const auto* w = ctx.CommandBuffer();
+@@ -2732,6 +2757,8 @@ private:
+             m_codec = std::move(codec);
+             m_width = w[5];
+             m_height = w[6];
++            m_clock_offset.reset();
++            m_stream_start.reset();
+         }
+         if (!m_worker.joinable()) {
+             m_worker = std::thread{[this] { DecodeLoop(); }};
+@@ -2847,6 +2874,25 @@ private:
+         const u64 pts = u64{w[words]} | (u64{w[words + 1]} << 32);
+         const bool end = (w[words + 2] & 0xFF) != 0;
+         Log(ctx, "submit");
++        // The SDK answers busy when the decoder cannot take a packet, and the client retries after
++        // the submission-ready event. Taking every packet let a player queue a whole movie: Ocarina
++        // of Time's title movie went in at ~330 packets a second (2,600 queued), and until the
++        // last was in, its pictures came at 20-28 fps, so the video started ~11 s behind its
++        // audio. End of stream is never refused.
++        if (!end) {
++            std::scoped_lock lk{m_mutex};
++            if (m_inputs.Full()) {
++                if (Nx2VideoTraceEnabled()) {
++                    LOG_INFO(Service, "nx2:vdec trace refuse syncpoint={} pts={} queued={}",
++                             m_syncpoint, pts, m_inputs.Size());
++                }
++                // nn::codec's module (111) is HwOpus in ErrorModule
++                constexpr Result ResultDecoderBusy{ErrorModule::HwOpus, 3603};
++                IPC::ResponseBuilder rb{ctx, 2};
++                rb.PushRaw<u32>(ResultDecoderBusy.raw);
++                return;
++            }
++        }
+         Input input{{}, pts, end};
+         if (!ctx.BufferDescriptorA().empty()) {
+             const auto data = ctx.ReadBufferA(0);
+@@ -2893,6 +2939,8 @@ private:
+             m_flush = true;
+             m_stream_ended = false;
+             m_end_queued = false;
++            m_clock_offset.reset();
++            m_stream_start.reset();
+             m_ready->room.store(true, std::memory_order_relaxed);
+             // Only Stop: Bananza flushes (8) after its movies end and treats every completed
+             // fence as a frame to acquire.
+@@ -2917,10 +2965,74 @@ private:
+                          m_decoded_frames, m_frames_out, m_stream_ended, m_end_queued);
+             }
+             CompleteHandedFences();
++            m_clock_offset.reset();
++            m_stream_start.reset();
+         }
+         TipcReplyWords(ctx, {});
+     }
+ 
++    static s64 HostTimeUs() {
++        return std::chrono::duration_cast<std::chrono::microseconds>(
++                   std::chrono::steady_clock::now().time_since_epoch())
++            .count();
++    }
++
++    // Starts or corrects the movie clock from a frame the client just acquired (m_mutex held).
++    // The clock never runs behind a frame the client already shows.
++    void AnchorClock(u64 pts) {
++        const s64 now = HostTimeUs();
++        const s64 offset = now - static_cast<s64>(pts);
++        if (!m_clock_offset || now - m_last_acquire > PauseGap || pts < m_last_acquired_pts ||
++            offset < *m_clock_offset || offset - *m_clock_offset > MaxCatchUp) {
++            m_clock_offset = offset;
++        }
++        m_last_acquire = now;
++        m_last_acquired_pts = pts;
++    }
++
++    // The pts the movie's audio has reached, if the client shows frames yet (m_mutex held).
++    std::optional<u64> DuePts() {
++        if (!m_clock_offset) {
++            return std::nullopt;
++        }
++        const s64 now = HostTimeUs();
++        const s64 due = now - *m_clock_offset;
++        // Nothing acquired for a while: paused; the next acquire restarts the clock.
++        if (due < 0 || now - m_last_acquire > PauseGap) {
++            return std::nullopt;
++        }
++        return static_cast<u64>(due);
++    }
++
++    // Games such as Ocarina of Time show one decoded frame per frame they draw and never skip
++    // one, while the movie's audio plays in real time: below the movie's frame rate the picture
++    // falls further behind the sound. Drop decoded frames a later frame has already overtaken
++    // (m_mutex held). Returns true when the only frame left is late and more input is queued:
++    // decode on before filling an image.
++    bool DropOvertakenFrames() {
++        if (m_decoded.empty()) {
++            return false;
++        }
++        const auto due = DuePts();
++        if (!due) {
++            m_dropped_in_a_row = 0;
++            return false;
++        }
++        while (m_decoded.size() >= 2 && m_dropped_in_a_row < MaxDroppedInARow) {
++            const Decoded& front = m_decoded[0];
++            const Decoded& next = m_decoded[1];
++            if (front.end || !front.picture || next.pts <= front.pts || next.pts > *due) {
++                break;
++            }
++            m_decoded.pop_front();
++            ++m_frames_dropped;
++            ++m_dropped_in_a_row;
++        }
++        const Decoded& front = m_decoded.front();
++        return m_decoded.size() == 1 && !m_inputs.Empty() && !front.end &&
++               m_dropped_in_a_row < MaxDroppedInARow && front.pts + m_frame_interval < *due;
++    }
++
+     // Advances the decoder's syncpoint to the last value handed out (m_mutex held).
+     void CompleteHandedFences() {
+         if (m_syncpoint == NoSyncpoint) {
+@@ -2947,6 +3059,7 @@ private:
+             if (!m_outputs.empty()) {
+                 output = m_outputs.front();
+                 m_outputs.pop_front();
++                AnchorClock(output->pts);
+             }
+         }
+         if (!output) {
+@@ -2990,6 +3103,8 @@ private:
+             if (m_flush) {
+                 m_flush = false;
+                 m_decoded.clear();
++                m_last_decoded_pts = 0;
++                m_dropped_in_a_row = 0;
+                 if (decoder) {
+                     lk.unlock();
+                     decoder->Reset();
+@@ -2997,7 +3112,8 @@ private:
+                 }
+                 continue;
+             }
+-            if (!m_decoded.empty() && !m_free.empty()) {
++            if (!m_decoded.empty() && !m_free.empty() && !DropOvertakenFrames()) {
++                m_dropped_in_a_row = 0;
+                 Decoded frame = std::move(m_decoded.front());
+                 m_decoded.pop_front();
+                 const u32 image = m_free.front();
+@@ -3027,10 +3143,24 @@ private:
+                     DrainFreeAsEndOfStream();
+                 }
+                 ++m_frames_out;
++                const s64 written_us = HostTimeUs();
++                if (!m_stream_start) {
++                    m_stream_start = {written_us, frame.pts};
++                }
+                 if (m_frames_out == 1 || (m_frames_out % 600) == 0 || frame.end) {
+-                    LOG_INFO(Service, "{} frame {} ({}x{}, pts {} us{}) in image {}",
++                    // How far the frames written lag their timestamps since the stream's first.
++                    const s64 behind_us =
++                        (written_us - m_stream_start->first) -
++                        (static_cast<s64>(frame.pts) - static_cast<s64>(m_stream_start->second));
++                    LOG_INFO(Service,
++                             "{} frame {} ({}x{}, pts {} us{}) in image {}, {} late dropped, "
++                             "{} ms behind",
+                              GetServiceName(), m_frames_out, width, height, frame.pts,
+-                             frame.end ? ", end of stream" : "", image);
++                             frame.end ? ", end of stream" : "", image, m_frames_dropped,
++                             behind_us / 1000);
++                }
++                if (frame.end) {
++                    m_stream_start.reset();
+                 }
+                 continue;
+             }
+@@ -3059,6 +3189,7 @@ private:
              }
              pictures.clear();
              decoder->Decode(input.data, input.pts, pictures);
@@ -702,6 +878,73 @@ index ce0219d37e..4198f7863c 100644
              if (input.end) {
                  decoder->Drain(pictures);
              }
+@@ -3076,6 +3207,10 @@ private:
+             }
+             for (auto& picture : pictures) {
+                 const u64 pts = picture.pts;
++                if (pts > m_last_decoded_pts && pts - m_last_decoded_pts <= 100'000) {
++                    m_frame_interval = pts - m_last_decoded_pts;
++                }
++                m_last_decoded_pts = pts;
+                 m_decoded.push_back({std::move(picture), pts, false});
+             }
+             if (input.end) {
+@@ -3265,6 +3400,14 @@ private:
+     u32 m_handed{}; ///< Output images handed out (registered or released) so far
+     u64 m_frames_out{};
+     u64 m_decoded_frames{};
++    u64 m_frames_dropped{};
++    std::optional<s64> m_clock_offset; ///< Host time minus pts (us) of the frames the client shows
++    s64 m_last_acquire{};              ///< Host time (us) of the client's last acquire
++    u64 m_last_acquired_pts{};
++    u64 m_frame_interval{16667}; ///< us, from consecutive decoded frames
++    u64 m_last_decoded_pts{};
++    u32 m_dropped_in_a_row{};
++    std::optional<std::pair<s64, u64>> m_stream_start; ///< Host time (us) and pts of its first frame
+     Nx2VideoInputQueue m_inputs;
+     std::deque<Decoded> m_decoded;     ///< Waiting for a free output image
+     std::deque<u32> m_free;            ///< Output images, in the order the client acquires them
+diff --git a/src/core/hle/service/nx2_video_input_queue.h b/src/core/hle/service/nx2_video_input_queue.h
+index b0a5bb873c..c4b97a4f5b 100644
+--- a/src/core/hle/service/nx2_video_input_queue.h
++++ b/src/core/hle/service/nx2_video_input_queue.h
+@@ -20,6 +20,10 @@ public:
+     };
+ 
+     static constexpr size_t ReadyWatermark = 8;
++    /// The decoder refuses packets (nn::codec 3603, busy) from this many on. Well above the
++    /// watermark: a client may hold a ready signal when the event stops, and some send one packet
++    /// per signal and ignore the result, so those packets must still fit (a refused one is lost).
++    static constexpr size_t RefuseAt = ReadyWatermark * 3;
+ 
+     void Push(Input input) {
+         inputs.push_back(std::move(input));
+@@ -47,6 +51,11 @@ public:
+         return inputs.size() < ReadyWatermark;
+     }
+ 
++    /// Whether SubmitInput refuses packets other than end of stream: RefuseAt or more queued.
++    bool Full() const {
++        return inputs.size() >= RefuseAt;
++    }
++
+ private:
+     std::deque<Input> inputs;
+ };
+diff --git a/src/core/hle/service/server_manager.cpp b/src/core/hle/service/server_manager.cpp
+index 9157f7c6d4..a8a4df3608 100644
+--- a/src/core/hle/service/server_manager.cpp
++++ b/src/core/hle/service/server_manager.cpp
+@@ -264,6 +264,9 @@ void ServerManager::StartAdditionalHostThreads(const char* name, size_t num_thre
+ 
+ Result ServerManager::LoopProcess() {
+     SCOPE_EXIT {
++        // Join the additional host threads before returning, so the state the caller keeps on its
++        // stack for the services (AM's WindowSystem) outlives any request they are still handling.
++        m_threads.clear();
+         m_stopped.Set();
+     };
+ 
 diff --git a/src/frontend_common/update_checker.cpp b/src/frontend_common/update_checker.cpp
 index 94ee0b33a6..c0a57a100a 100644
 --- a/src/frontend_common/update_checker.cpp
@@ -773,6 +1016,31 @@ index 481f5c5e1d..48dd887b97 100644
 +    CHECK(settings->async_presentation.GetValue());
 +    CHECK(settings->use_asynchronous_shaders.GetValue());
 +}
+diff --git a/src/tests/core/nx2_video_input_queue.cpp b/src/tests/core/nx2_video_input_queue.cpp
+index b39013e02c..08f308496a 100644
+--- a/src/tests/core/nx2_video_input_queue.cpp
++++ b/src/tests/core/nx2_video_input_queue.cpp
+@@ -27,6 +27,20 @@ TEST_CASE("NX2 video retains packets submitted beyond the readiness watermark",
+     REQUIRE(queue.Empty());
+ }
+ 
++TEST_CASE("NX2 video refuses packets only well past the readiness watermark", "[nx2_video_input]") {
++    Service::Nx2VideoInputQueue queue;
++    STATIC_REQUIRE(queue.RefuseAt > queue.ReadyWatermark);
++    for (u64 index = 0; index < queue.RefuseAt; ++index) {
++        CAPTURE(index);
++        REQUIRE_FALSE(queue.Full());
++        queue.Push({{static_cast<u8>(index)}, index * 16667, false});
++    }
++    REQUIRE(queue.Full());
++    queue.Pop();
++    REQUIRE_FALSE(queue.Full());
++    REQUIRE_FALSE(queue.BelowReadyWatermark());
++}
++
+ TEST_CASE("NX2 video queues preserve independent interleaved sessions", "[nx2_video_input]") {
+     std::array<Service::Nx2VideoInputQueue, 3> queues;
+     for (u64 frame = 0; frame < 32; ++frame) {
 diff --git a/src/tests/video_core/nx2_written_pages.cpp b/src/tests/video_core/nx2_written_pages.cpp
 new file mode 100644
 index 0000000000..45c283667c
@@ -1090,7 +1358,7 @@ index 7cff85d663..8301029127 100644
  if (HAIKUOS)
 diff --git a/src/video_core/host_shaders/ocarina_dlss_bias.comp b/src/video_core/host_shaders/ocarina_dlss_bias.comp
 new file mode 100644
-index 0000000000..51c44c191e
+index 0000000000..ecb4c98b66
 --- /dev/null
 +++ b/src/video_core/host_shaders/ocarina_dlss_bias.comp
 @@ -0,0 +1,35 @@
@@ -1101,7 +1369,7 @@ index 0000000000..51c44c191e
 +layout(binding = 0) uniform sampler2D current_effects;
 +layout(binding = 1) uniform sampler2D previous_effects;
 +layout(binding = 2) uniform sampler2D motion;
-+layout(binding = 3, r8) uniform writeonly image2D bias;
++layout(binding = 3, r16f) uniform writeonly image2D bias;
 +layout(push_constant) uniform Controls { uint has_previous; } controls;
 +
 +float Nearby(sampler2D effects, ivec2 center) {
@@ -1367,7 +1635,7 @@ index 087714748a..af7387d28d 100644
  
      struct QueryCacheBaseImpl;
 diff --git a/src/video_core/renderer_vulkan/vk_ocarina_camera_motion.cpp b/src/video_core/renderer_vulkan/vk_ocarina_camera_motion.cpp
-index ecde60dea3..8fc3cc02a8 100644
+index ecde60dea3..0a70e85fc4 100644
 --- a/src/video_core/renderer_vulkan/vk_ocarina_camera_motion.cpp
 +++ b/src/video_core/renderer_vulkan/vk_ocarina_camera_motion.cpp
 @@ -4,6 +4,7 @@
@@ -1387,7 +1655,7 @@ index ecde60dea3..8fc3cc02a8 100644
  #include "video_core/renderer_vulkan/vk_master_semaphore.h"
  #include "video_core/renderer_vulkan/vk_streamline_dlss.h"
  
-@@ -528,7 +531,69 @@ private:
+@@ -528,7 +531,71 @@ private:
      bool logged{};
  };
  
@@ -1454,10 +1722,12 @@ index ecde60dea3..8fc3cc02a8 100644
 +
  constexpr VkFormat LIVE_COLOR_FORMAT = VK_FORMAT_R16G16B16A16_SFLOAT;
 +constexpr VkFormat EFFECTS_FORMAT = VK_FORMAT_R8_UNORM;
++// Streamline has no R8_UNORM: it rejects such a mask as "undefined format" and DLSS never sees it.
++constexpr VkFormat BIAS_FORMAT = VK_FORMAT_R16_SFLOAT;
  
  vk::Image CreateOcarinaImage(MemoryAllocator& allocator, VkExtent2D extent, VkFormat format,
                              VkImageUsageFlags usage) {
-@@ -575,6 +640,35 @@ struct OcarinaFrameSlot {
+@@ -575,6 +642,35 @@ struct OcarinaFrameSlot {
      std::unique_ptr<ActorOverlay> overlay;
  };
  
@@ -1472,8 +1742,8 @@ index ecde60dea3..8fc3cc02a8 100644
 +                CreateOcarinaImage(allocator, extent, EFFECTS_FORMAT, USAGE)},
 +          mark_views{CreateOcarinaView(device, *marks[0], EFFECTS_FORMAT),
 +                     CreateOcarinaView(device, *marks[1], EFFECTS_FORMAT)},
-+          bias{CreateOcarinaImage(allocator, extent, EFFECTS_FORMAT, USAGE)},
-+          bias_view{CreateOcarinaView(device, *bias, EFFECTS_FORMAT)} {}
++          bias{CreateOcarinaImage(allocator, extent, BIAS_FORMAT, USAGE)},
++          bias_view{CreateOcarinaView(device, *bias, BIAS_FORMAT)} {}
 +
 +    static constexpr VkImageUsageFlags USAGE =
 +        VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -1493,7 +1763,7 @@ index ecde60dea3..8fc3cc02a8 100644
  } // namespace
  
  struct OcarinaLiveDlss::Impl {
-@@ -605,6 +699,10 @@ struct OcarinaLiveDlss::Impl {
+@@ -605,6 +701,10 @@ struct OcarinaLiveDlss::Impl {
      std::unique_ptr<OcarinaCompositePass> composite_pass;
      vk::Sampler linear_sampler;
      std::optional<u64> composited_frame;
@@ -1504,7 +1774,7 @@ index ecde60dea3..8fc3cc02a8 100644
  
      VkSampler LinearSampler() {
          if (!linear_sampler) {
-@@ -678,6 +776,53 @@ void OcarinaLiveDlss::Composite4k(VkImageView native_composite, u64 frame) {
+@@ -678,6 +778,53 @@ void OcarinaLiveDlss::Composite4k(VkImageView native_composite, u64 frame) {
      state.composited_frame = frame;
  }
  
@@ -1558,7 +1828,7 @@ index ecde60dea3..8fc3cc02a8 100644
  VkImage OcarinaLiveDlss::CompositedImage() const {
      return *impl->composite;
  }
-@@ -736,6 +881,24 @@ bool OcarinaLiveDlss::Record(VkImageView color, VkImageView depth, VkImageView t
+@@ -736,6 +883,24 @@ bool OcarinaLiveDlss::Record(VkImageView color, VkImageView depth, VkImageView t
      state.queue.AddImage(*resources.color_view);
      state.color_pass.Record(state.scheduler, state.queue.UpdateData(), *resources.color, extent);
  
@@ -1576,14 +1846,14 @@ index ecde60dea3..8fc3cc02a8 100644
 +        state.queue.AddImage(*effects.bias_view);
 +        state.effects_bias_pass->Record(state.scheduler, state.queue.UpdateData(), *effects.bias,
 +                                        extent, has_previous ? 1 : 0);
-+        bias = StreamlineDlssUpscaler::Image{*effects.bias_view, *effects.bias, EFFECTS_FORMAT,
++        bias = StreamlineDlssUpscaler::Image{*effects.bias_view, *effects.bias, BIAS_FORMAT,
 +                                             COLOR_RANGE, VK_IMAGE_ASPECT_COLOR_BIT};
 +    }
 +
      const bool reset = !state.last_frame || frame != *state.last_frame + 1 ||
                         !std::ranges::equal(previous, state.last_view_projection,
                                             [](f32 a, f32 b) { return std::abs(a - b) < 0.001f; });
-@@ -752,6 +915,7 @@ bool OcarinaLiveDlss::Record(VkImageView color, VkImageView depth, VkImageView t
+@@ -752,6 +917,7 @@ bool OcarinaLiveDlss::Record(VkImageView color, VkImageView depth, VkImageView t
              .reset = reset,
              .depth_inverted = false,
              .hdr = false,
@@ -1752,7 +2022,7 @@ index f97705184a..f988ce0685 100644
  
      std::chrono::steady_clock::duration frame_interval{};
 diff --git a/src/video_core/renderer_vulkan/vk_streamline_dlss.cpp b/src/video_core/renderer_vulkan/vk_streamline_dlss.cpp
-index 79101754f7..7bd821fb97 100644
+index 79101754f7..d7afa6dae4 100644
 --- a/src/video_core/renderer_vulkan/vk_streamline_dlss.cpp
 +++ b/src/video_core/renderer_vulkan/vk_streamline_dlss.cpp
 @@ -7,6 +7,8 @@
@@ -1764,7 +2034,34 @@ index 79101754f7..7bd821fb97 100644
  #include "common/logging.h"
  #include "video_core/dlss_evaluation.h"
  #include "video_core/renderer_vulkan/vk_scheduler.h"
-@@ -301,7 +303,7 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
+@@ -49,13 +51,13 @@ sl::DLSSMode ModeFor(VkExtent2D render, VkExtent2D upscale) {
+ }
+ 
+ // Preset K for every mode: NVIDIA's defaults for Performance/Ultra Performance (M, L) draw thin
+-// horizontal lines in Fire Emblem at 2x resolution scale. EDEN_NX2_DLSS_PRESET=J|K|L|M picks
+-// another model, EDEN_NX2_DLSS_PRESET=default leaves the choice to NVIDIA.
++// horizontal lines in Fire Emblem at 2x resolution scale. EDEN_NX2_DLSS_PRESET=E|F (the CNN
++// models) or J|K|L|M picks another model, EDEN_NX2_DLSS_PRESET=default leaves the choice to
++// NVIDIA.
+ sl::DLSSPreset Preset() {
+     const char* const value = std::getenv("EDEN_NX2_DLSS_PRESET");
+-    if (value && value[0] >= 'J' && value[0] <= 'M') {
+-        return static_cast<sl::DLSSPreset>(static_cast<u32>(sl::DLSSPreset::ePresetJ) +
+-                                           static_cast<u32>(value[0] - 'J'));
++    if (value && (value[0] == 'E' || value[0] == 'F' || (value[0] >= 'J' && value[0] <= 'M'))) {
++        return static_cast<sl::DLSSPreset>(value[0] - 'A' + 1);
+     }
+     if (value && std::string_view{value} == "default") {
+         return sl::DLSSPreset::eDefault;
+@@ -120,6 +122,7 @@ StreamlineDlssUpscaler::StreamlineDlssUpscaler(const Device& device_, Scheduler&
+                   static_cast<int>(result));
+         throw vk::Exception(VK_ERROR_FEATURE_NOT_PRESENT);
+     }
++    Streamline::GetApi().get_feature_function(sl::kFeatureDLSS, "slDLSSGetState", get_state);
+     point_sampler = device.GetLogical().CreateSampler(VkSamplerCreateInfo{
+         .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+         .pNext = nullptr,
+@@ -301,7 +304,7 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
              VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
          // The inputs come from the game's draws and dispatches and stay in GENERAL otherwise;
          // DLSS reads them as sampled images.
@@ -1773,7 +2070,7 @@ index 79101754f7..7bd821fb97 100644
              Barrier(in.color, WRITES, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
              Barrier(in.depth, WRITES, VK_ACCESS_SHADER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
-@@ -361,9 +363,9 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
+@@ -361,9 +364,9 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
                                     sl::ResourceLifecycle::eValidUntilEvaluate, &render_area};
          sl::ResourceTag output_tag{&output, sl::kBufferTypeScalingOutputColor,
                                     sl::ResourceLifecycle::eValidUntilEvaluate, &output_area};
@@ -1786,7 +2083,7 @@ index 79101754f7..7bd821fb97 100644
              Barrier(in.color, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT | WRITES,
                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL),
              Barrier(in.depth, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT | WRITES,
-@@ -371,6 +373,24 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
+@@ -371,6 +374,24 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
              Barrier(in.motion_vectors, VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_SHADER_READ_BIT | WRITES,
                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL),
          };
@@ -1811,7 +2108,7 @@ index 79101754f7..7bd821fb97 100644
          const VkMemoryBarrier output_written{
              .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
              .pNext = nullptr,
-@@ -400,7 +420,8 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
+@@ -400,7 +421,8 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
                  return api_result == sl::Result::eOk;
              },
              [&] {
@@ -1821,8 +2118,25 @@ index 79101754f7..7bd821fb97 100644
                                                    reinterpret_cast<sl::CommandBuffer*>(*cmdbuf));
                  return api_result == sl::Result::eOk;
              },
+@@ -416,6 +438,16 @@ bool StreamlineDlssUpscaler::Upscale(const Inputs& in) {
+         }
+         if (result != VideoCommon::DlssEvaluationResult::Succeeded) {
+             clear_output();
++            return;
++        }
++        // NGX doesn't report the model it picked, but its memory tells them apart: at 3840x2160
++        // output DLSS 310.9 allocates about 198 MB for presets E and F and 307 MB for J and K.
++        sl::DLSSState state{};
++        if (options_changed && get_state &&
++            reinterpret_cast<PFun_slDLSSGetState*>(get_state)(viewport, state) == sl::Result::eOk) {
++            LOG_INFO(Render_Vulkan, "NVIDIA DLSS (Streamline): preset {} allocated {:.1f} MB",
++                     static_cast<int>(options.dlaaPreset),
++                     static_cast<double>(state.estimatedVRAMUsageInBytes) / 1e6);
+         }
+     });
+     // DLSS binds its own pipelines and descriptors on the command buffer.
 diff --git a/src/video_core/renderer_vulkan/vk_streamline_dlss.h b/src/video_core/renderer_vulkan/vk_streamline_dlss.h
-index 412502b169..852170ce36 100644
+index 412502b169..eb76153dd9 100644
 --- a/src/video_core/renderer_vulkan/vk_streamline_dlss.h
 +++ b/src/video_core/renderer_vulkan/vk_streamline_dlss.h
 @@ -8,6 +8,7 @@
@@ -1837,11 +2151,19 @@ index 412502b169..852170ce36 100644
          bool reset;
          bool depth_inverted = true;
          bool hdr = true; ///< Linear HDR colour. False for tonemapped, perceptually encoded colour.
-+        /// R8 at the render size: 1 where DLSS should use this frame's colour instead of history.
++        /// R16F at the render size: 1 where DLSS should use this frame's colour instead of history.
 +        std::optional<Image> bias_current_color;
      };
  
      /// Throws vk::Exception when Streamline has no DLSS for this device.
+@@ -74,6 +77,7 @@ private:
+     Scheduler& scheduler;
+     MemoryAllocator& memory_allocator;
+     void* set_options{}; ///< slDLSSSetOptions
++    void* get_state{};   ///< slDLSSGetState
+     VkExtent2D render_extent{};
+     VkExtent2D upscale_extent{};
+     bool hdr_input = true;
 diff --git a/src/video_core/texture_cache/texture_cache.h b/src/video_core/texture_cache/texture_cache.h
 index 93db205836..b7123d1679 100644
 --- a/src/video_core/texture_cache/texture_cache.h
