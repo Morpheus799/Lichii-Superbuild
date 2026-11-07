@@ -25,7 +25,7 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `b7ff181f20a1a397999151b84750f65f417f2b45` (2026-11-07).
+- Base commit: `92f0212408f00b459c152c2fb9dcbcf38bcb4ce1` (2026-11-07).
   The grass/foliage fix is now upstream as #551, so the 14-commit
   `capy/oot-hyrule-grass-fix` series is no longer carried.
 - Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
@@ -165,6 +165,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout b7ff181f
+git checkout 92f0212
 git apply patches/superbuild.patch
 ```

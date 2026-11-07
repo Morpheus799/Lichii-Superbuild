@@ -3,6 +3,16 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## v16
+
+- Base: `nx2` `92f0212` — adds #616 OoT option to bypass the game's sharpening
+  anti-aliasing network (imports #319) and #574 (CI ccache, no binary change).
+- Carries PR #635 (unmerged upstream): keeps Navi's glow, fireflies and dust out
+  of NVIDIA DLSS history, fixing night smear and flicker from #606. New
+  `ocarina_dlss_bias.comp` / `ocarina_dlss_effects.comp` shaders and Streamline
+  DLSS hooks; indirect dispatch binds are no longer deferred while effects are
+  marked.
+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
 ## v15
 
 - Base: `nx2` `b7ff181f` — adds #606 NVIDIA DLSS Super Resolution for OoT
