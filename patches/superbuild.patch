@@ -132,6 +132,34 @@ index bc40878ce6..d45ed3ce85 100644
 +  batching, OoT reticle, GPU split, Frizti ports, mja00 fixes, Nolar AMD fixes.
 +- Windows and Linux, standard and PGO.
 +- Includes reference builds from `e219d24c` and `55532f2d`.
+diff --git a/CMakeModules/GenerateSCMRev.cmake b/CMakeModules/GenerateSCMRev.cmake
+index bdd14dbf42..011ca069b6 100644
+--- a/CMakeModules/GenerateSCMRev.cmake
++++ b/CMakeModules/GenerateSCMRev.cmake
+@@ -14,7 +14,7 @@ endfunction()
+ 
+ get_timestamp(BUILD_DATE)
+ 
+-if (LICHII_BUILD_TAG MATCHES "^build-[0-9]+$")
++if (LICHII_BUILD_TAG MATCHES "^(build-[0-9]+|v[0-9]+)$")
+     set(BUILD_VERSION "${LICHII_BUILD_TAG}")
+     set(IS_DEV_BUILD false)
+ elseif (DEFINED GIT_RELEASE)
+@@ -37,11 +37,11 @@ set(GIT_DESC ${BUILD_VERSION})
+ 
+ # Generate cpp with Git revision from template
+ 
+-set(BUILD_AUTO_UPDATE_STABLE_REPO "zortos293/Lichii")
++set(BUILD_AUTO_UPDATE_STABLE_REPO "callme-sy/Lichii-Superbuild")
+ set(BUILD_AUTO_UPDATE_STABLE_API "api.github.com")
+-set(BUILD_AUTO_UPDATE_API_PATH "/repos/zortos293/Lichii/releases?per_page=100")
++set(BUILD_AUTO_UPDATE_API_PATH "/repos/callme-sy/Lichii-Superbuild/releases?per_page=100")
+ set(BUILD_AUTO_UPDATE_WEBSITE "https://github.com")
+-set(BUILD_AUTO_UPDATE_REPO "zortos293/Lichii")
++set(BUILD_AUTO_UPDATE_REPO "callme-sy/Lichii-Superbuild")
+ if (NIGHTLY_BUILD)
+     set(REPO_NAME "Lichii Nightly")
+ else()
 diff --git a/MCP-DEBUG.md b/MCP-DEBUG.md
 new file mode 100644
 index 0000000000..a0496b95b6
@@ -444,6 +472,60 @@ index 83dd4d3c3f..1379e76568 100644
 +}
 +
  } // namespace Settings
+diff --git a/src/common/net/net.cpp b/src/common/net/net.cpp
+index 140225da07..cc24eacf2f 100644
+--- a/src/common/net/net.cpp
++++ b/src/common/net/net.cpp
+@@ -57,23 +57,36 @@ std::vector<Asset> Release::GetPlatformAssets(std::string_view platform,
+ 
+     const std::string host_url = "https://github.com";
+     const auto path = fmt::format("/{}/releases/download/{}/", Common::g_build_auto_update_repo, tag);
++
++    std::string asset_platform{platform};
++    if (platform == "windows-x86_64") {
++        asset_platform = "win64";
++    } else if (platform == "linux-x86_64") {
++        asset_platform = "linux-x64";
++    }
++
+     for (const std::string_view variant : pgo ? std::vector<std::string_view>{"-pgo", ""}
+                                               : std::vector<std::string_view>{""}) {
+         for (const auto extension : extensions) {
+-            const auto filename = fmt::format("lichii-{}{}{}", platform, variant, extension);
+-            const auto url = host_url + path + filename;
+-            if (std::ranges::find(assets, url) == assets.end()) {
+-                continue;
+-            }
+-            Asset asset{.name = variant.empty() ? "Standard" : "PGO",
+-                        .url = host_url,
+-                        .path = path + filename,
+-                        .filename = filename};
+-            if (const auto info = asset_info.find(url); info != asset_info.end()) {
+-                asset.sha256 = info->second.sha256;
+-                asset.size = info->second.size;
++            std::vector<std::string> filenames;
++            filenames.push_back(
++                fmt::format("Lichii-{}-{}{}{}", tag, asset_platform, variant, extension));
++            filenames.push_back(fmt::format("lichii-{}{}{}", platform, variant, extension));
++            for (const auto& filename : filenames) {
++                const auto url = host_url + path + filename;
++                if (std::ranges::find(assets, url) == assets.end()) {
++                    continue;
++                }
++                Asset asset{.name = variant.empty() ? "Standard" : "PGO",
++                            .url = host_url,
++                            .path = path + filename,
++                            .filename = filename};
++                if (const auto info = asset_info.find(url); info != asset_info.end()) {
++                    asset.sha256 = info->second.sha256;
++                    asset.size = info->second.size;
++                }
++                return {std::move(asset)};
+             }
+-            return {std::move(asset)};
+         }
+     }
+     return {};
 diff --git a/src/core/core.cpp b/src/core/core.cpp
 index 951d99cc57..3005df9093 100644
 --- a/src/core/core.cpp
@@ -532,6 +614,95 @@ index c680a2cd2c..3fad0deb0f 100644
              if (input.end) {
                  decoder->Drain(pictures);
              }
+diff --git a/src/frontend_common/update_checker.cpp b/src/frontend_common/update_checker.cpp
+index 94ee0b33a6..c0a57a100a 100644
+--- a/src/frontend_common/update_checker.cpp
++++ b/src/frontend_common/update_checker.cpp
+@@ -15,14 +15,19 @@ namespace UpdateChecker {
+ namespace {
+ 
+ std::optional<u64> ParseBuildNumber(std::string_view tag) {
+-    constexpr std::string_view prefix = "build-";
+-    if (!tag.starts_with(prefix)) {
++    constexpr std::string_view build_prefix = "build-";
++    std::string_view digits = tag;
++    if (tag.starts_with(build_prefix)) {
++        digits.remove_prefix(build_prefix.size());
++    } else if (tag.size() > 1 && (tag.front() == 'v' || tag.front() == 'V')) {
++        digits.remove_prefix(1);
++    } else {
+         return std::nullopt;
+     }
+-    tag.remove_prefix(prefix.size());
++
+     u64 number{};
+-    const auto [end, error] = std::from_chars(tag.data(), tag.data() + tag.size(), number);
+-    if (error != std::errc{} || end != tag.data() + tag.size() || number == 0) {
++    const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), number);
++    if (error != std::errc{} || end != digits.data() + digits.size() || number == 0) {
+         return std::nullopt;
+     }
+     return number;
+diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
+index 94b6c2d821..b1ff55c3d2 100644
+--- a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
++++ b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
+@@ -3,6 +3,8 @@
+ // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
+ // SPDX-License-Identifier: GPL-2.0-or-later
+ 
++#include <cstdlib>
++
+ #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
+ #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
+ #include "shader_recompiler/frontend/ir/modifiers.h"
+@@ -19,7 +21,15 @@ Id Decorate(EmitContext& ctx, IR::Inst* inst, Id op) {
+ 
+ // Maxwell's FMNMX and .SAT return the non-NaN operand (NaN saturates to 0). FMin/FMax/FClamp leave
+ // NaN undefined and AMD's Windows compiler passes it through, so use the NaN-defined N variants.
++bool AbFMinMax() {
++    static const bool enabled{std::getenv("EDEN_NX2_AB_FMINMAX") != nullptr};
++    return enabled;
++}
++
+ Id Clamp(EmitContext& ctx, Id type, Id value, Id zero, Id one) {
++    if (AbFMinMax()) {
++        return ctx.OpFClamp(type, value, zero, one);
++    }
+     return ctx.OpNMin(type, ctx.OpNMax(type, value, zero), one);
+ }
+ 
+@@ -83,18 +93,30 @@ Id EmitFPFma64(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c) {
+ }
+ 
+ Id EmitFPMax32(EmitContext& ctx, Id a, Id b) {
++    if (AbFMinMax()) {
++        return ctx.OpFMax(ctx.F32[1], a, b);
++    }
+     return ctx.OpNMax(ctx.F32[1], a, b);
+ }
+ 
+ Id EmitFPMax64(EmitContext& ctx, Id a, Id b) {
++    if (AbFMinMax()) {
++        return ctx.OpFMax(ctx.F64[1], a, b);
++    }
+     return ctx.OpNMax(ctx.F64[1], a, b);
+ }
+ 
+ Id EmitFPMin32(EmitContext& ctx, Id a, Id b) {
++    if (AbFMinMax()) {
++        return ctx.OpFMin(ctx.F32[1], a, b);
++    }
+     return ctx.OpNMin(ctx.F32[1], a, b);
+ }
+ 
+ Id EmitFPMin64(EmitContext& ctx, Id a, Id b) {
++    if (AbFMinMax()) {
++        return ctx.OpFMin(ctx.F64[1], a, b);
++    }
+     return ctx.OpNMin(ctx.F64[1], a, b);
+ }
+ 
 diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
 index c8f3ae570d..1896614526 100644
 --- a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
@@ -639,6 +810,28 @@ index c8f3ae570d..1896614526 100644
          std::array<Id, 2> packed;
          for (u32 row = 0; row < 2; ++row)
              packed[row] = ctx.OpPackHalf2x16(u32ty, ctx.OpCompositeConstruct(ctx.F32[2],
+diff --git a/src/shader_recompiler/frontend/maxwell/translate_program.cpp b/src/shader_recompiler/frontend/maxwell/translate_program.cpp
+index 65966124f0..f17b6c9225 100644
+--- a/src/shader_recompiler/frontend/maxwell/translate_program.cpp
++++ b/src/shader_recompiler/frontend/maxwell/translate_program.cpp
+@@ -7,6 +7,7 @@
+ #include <algorithm>
+ #include <array>
+ #include <bitset>
++#include <cstdlib>
+ #include <memory>
+ #include <optional>
+ #include <vector>
+@@ -411,7 +412,8 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
+         const u32 threads{program.stage == Stage::Task ? init & 0x3f : (shader_b >> 20) & 0x3f};
+         program.workgroup_size = {(std::max)(threads, 1U), 1, 1};
+         if (program.stage == Stage::Mesh) {
+-            if (program.mesh.topology != 0 && program.mesh.topology != 1 &&
++            static const bool ab_tri_only{std::getenv("EDEN_NX2_AB_MESH_TRI_ONLY") != nullptr};
++            if ((ab_tri_only || (program.mesh.topology != 0 && program.mesh.topology != 1)) &&
+                 program.mesh.topology != 4) {
+                 throw NotImplementedException("Mesh output topology {} (SET_MESH_SHADER_A {:#010x})",
+                                               program.mesh.topology, shader_a);
 diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
 index 195b9b6c42..1b81321d1c 100644
 --- a/src/tests/CMakeLists.txt
@@ -1055,7 +1248,7 @@ index ddc85e087a..c61485bc1d 100644
      renderer_vulkan/maxwell_to_vk.h
      renderer_vulkan/pipeline_build.h
 diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
-index ca414b2393..11202d0e2c 100644
+index ca414b2393..7e5102df40 100644
 --- a/src/video_core/buffer_cache/buffer_cache.h
 +++ b/src/video_core/buffer_cache/buffer_cache.h
 @@ -21,6 +21,7 @@
@@ -1090,6 +1283,31 @@ index ca414b2393..11202d0e2c 100644
      if (has_host_buffer && (*channel_state->uniform_buffer_sizes)[stage][index] == 0x10000 &&
          size != 0 && gpu_memory != nullptr && gpu_memory->UsesNativeTiling() &&
          (Nx2Perf::Verify() || !native_indirect_uniforms_this_frame.contains(device_addr)) &&
+@@ -2985,7 +2992,11 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
+             // constant from them. Written pools keep a cap: a write marks the whole binding
+             // GPU-modified.
+             if (table_pointer && !is_written) {
+-                const u64 reach = (std::min)(runtime.GetMaxStorageBufferRange(), u64{1_GiB});
++                static const u64 ab_cap = [] {
++                    const char* value = std::getenv("EDEN_NX2_AB_TABLE_CAP_MIB");
++                    return value ? std::strtoull(value, nullptr, 10) << 20 : u64{1_GiB};
++                }();
++                const u64 reach = (std::min)({runtime.GetMaxStorageBufferRange(), u64{1_GiB}, ab_cap + 64_KiB});
+                 const u32 limit = static_cast<u32>(reach - (std::min)(reach, u64{64_KiB}));
+                 return (std::min)(memory_layout_size, limit);
+             }
+diff --git a/src/video_core/engines/kepler_compute.cpp b/src/video_core/engines/kepler_compute.cpp
+index ff708ca21c..bceb427554 100644
+--- a/src/video_core/engines/kepler_compute.cpp
++++ b/src/video_core/engines/kepler_compute.cpp
+@@ -50,6 +50,7 @@ KeplerCompute::KeplerCompute(MemoryManager& memory_manager_)
+                      fmt::ptr(this), memory_manager.GetID());
+         };
+     }
++    native_qmd.strict_release = std::getenv("EDEN_NX2_AB_QMD_STRICT") != nullptr;
+     native_qmd.skipped_release = [](u64 address, std::size_t slot, std::span<const u32, 4> words) {
+         static std::unordered_set<u32> logged;
+         if (!logged.insert(words[1]).second) return;
 diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
 index f32fab777d..f537cb72cd 100644
 --- a/src/video_core/gpu.cpp
@@ -1257,6 +1475,34 @@ index f213417953..45b96bdc42 100644
  
      if (block) {
          state.cv.wait(lk, thread.get_stop_token(), [this, fence] {
+diff --git a/src/video_core/native_qmd.h b/src/video_core/native_qmd.h
+index f32afb363b..e0b2c3e988 100644
+--- a/src/video_core/native_qmd.h
++++ b/src/video_core/native_qmd.h
+@@ -41,6 +41,7 @@ public:
+     std::function<void(std::string_view, Address, std::int32_t)> trace;
+     // Optional diagnostics: called with the QMD, slot and raw words of a release it skips.
+     std::function<void(Address, std::size_t, std::span<const Word, 4>)> skipped_release;
++    bool strict_release{};
+     // QMD V03_00 release flags: 7:0 address high, 19 membar, 22:20 reduction op, 23 enable,
+     // 25:24 reduction format, 26 reduction enable, 28:27 non-blocking interrupt, 29 64-bit
+     // payload, 31:30 structure size (0 four words with timestamp, 1 one word, 2 two words).
+@@ -109,6 +110,15 @@ public:
+             if (!read(request.address, state.descriptor)) return "unmapped QMD";
+             const auto qmd = state.descriptor;
+             if ((qmd[18] & 0xff) != 0x30 || (qmd[4] & 0x100)) return "unsupported QMD version or queue";
++            if (strict_release) {
++                for (const Word base : ReleaseSlots) {
++                    const Word flags = qmd[base + 1];
++                    if (!(flags & (1U << 23))) continue;
++                    const bool add = (flags & (1U << 26)) != 0;
++                    if ((flags & (0x3bU << 24)) || (flags >> 30) != 1 ||
++                        (add && (flags & (7U << 20)))) return "unsupported QMD release format";
++                }
++            }
+             // A program Eden can't run is skipped, but the QMD still completes: its releases
+             // are what other queues and the CPU wait on (the console never fails a launch).
+             const bool dispatched = !(qmd[12] && (qmd[13] & 0xffff) && (qmd[14] & 0xffff)) || dispatch(qmd);
 diff --git a/src/video_core/nx2.h b/src/video_core/nx2.h
 index 7431fc5e37..d070270fbf 100644
 --- a/src/video_core/nx2.h
@@ -1755,10 +2001,10 @@ index 49dd837a42..24e16ecede 100644
                        std::span<const VideoCommon::BufferImageCopy> copies);
  
 diff --git a/src/video_core/texture_cache/texture_cache.h b/src/video_core/texture_cache/texture_cache.h
-index 77e40f4983..bcfa6a25ed 100644
+index 8fa7c1149e..323db74824 100644
 --- a/src/video_core/texture_cache/texture_cache.h
 +++ b/src/video_core/texture_cache/texture_cache.h
-@@ -134,15 +134,16 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
+@@ -136,15 +136,16 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
  }
  
  template <class P>
@@ -1778,7 +2024,7 @@ index 77e40f4983..bcfa6a25ed 100644
          ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
          // EDEN_NX2_TC_MIN_AGE=<frames>: never evict images used more recently (thrash tests).
          static const u64 min_age = [] {
-@@ -153,7 +154,7 @@ void TextureCache<P>::RunGarbageCollector() {
+@@ -155,7 +156,7 @@ void TextureCache<P>::RunGarbageCollector() {
          num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
      };
      const auto Cleanup = [this, &num_iterations, &high_priority_mode, &aggressive_mode,
@@ -1787,7 +2033,7 @@ index 77e40f4983..bcfa6a25ed 100644
          if (num_iterations == 0) {
              return true;
          }
-@@ -181,6 +182,9 @@ void TextureCache<P>::RunGarbageCollector() {
+@@ -183,6 +184,9 @@ void TextureCache<P>::RunGarbageCollector() {
          ++(True(image.flags & ImageFlagBits::CostlyLoad) ? gc_costly_deletes : gc_deletes);
          UnregisterImage(image_id);
          DeleteImage(image_id, image.scale_tick > frame_tick + 5);
@@ -1797,7 +2043,7 @@ index 77e40f4983..bcfa6a25ed 100644
          if (aggressive_mode && total_used_memory < critical_memory) {
              num_iterations >>= 2;
              aggressive_mode = false;
-@@ -252,7 +256,7 @@ void TextureCache<P>::RunGarbageCollector() {
+@@ -254,7 +258,7 @@ void TextureCache<P>::RunGarbageCollector() {
          evict_old_costly = false;
      }
      Collect();
@@ -1806,7 +2052,7 @@ index 77e40f4983..bcfa6a25ed 100644
          Configure(true);
          Collect();
      }
-@@ -275,6 +279,12 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
+@@ -277,6 +281,12 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
              *target = std::strtoull(value, nullptr, 10) << 20;
          }
      }
@@ -1819,7 +2065,7 @@ index 77e40f4983..bcfa6a25ed 100644
      if (log) {
          LOG_INFO(HW_GPU, "Texture cache thresholds: expected {} MiB, critical {} MiB, minimum {} MiB",
                   expected_memory >> 20, critical_memory >> 20, minimum_memory >> 20);
-@@ -453,8 +463,24 @@ void TextureCache<P>::TickFrame() {
+@@ -455,8 +465,24 @@ void TextureCache<P>::TickFrame() {
          gc_deletes = gc_costly_deletes = gc_download_deletes = async_decodes_queued = 0;
          images_created = images_deleted = 0;
      }
@@ -1846,7 +2092,7 @@ index 77e40f4983..bcfa6a25ed 100644
      }
      sentenced_images.Tick();
      sentenced_image_index = (sentenced_image_index + 1) % TICKS_TO_DESTROY;
-@@ -886,7 +912,22 @@ ImageViewId TextureCache<P>::VisitImageView(u32 index, bool compute) {
+@@ -888,7 +914,22 @@ ImageViewId TextureCache<P>::VisitImageView(u32 index, bool compute) {
          if (IsValidEntry(*gpu_memory, descriptor)) {
              const auto [pair, is_new_tc] = channel_state->image_views.try_emplace(descriptor);
              if (is_new_tc) {
@@ -1869,7 +2115,7 @@ index 77e40f4983..bcfa6a25ed 100644
                  if (pair->second != NULL_IMAGE_VIEW_ID) {
                      image_view_descriptors[pair->second].emplace_back(current_channel_id,
                                                                        descriptor);
-@@ -2559,6 +2600,9 @@ ImageId TextureCache<P>::InsertImage(const ImageInfo& info, GPUVAddr gpu_addr,
+@@ -2561,6 +2602,9 @@ ImageId TextureCache<P>::InsertImage(const ImageInfo& info, GPUVAddr gpu_addr,
                   static_cast<u32>(info.format), info.block.width, info.block.height, info.block.depth);
      }
      const ImageId image_id = JoinImages(storage_info, gpu_addr, *cpu_addr);
@@ -1879,7 +2125,7 @@ index 77e40f4983..bcfa6a25ed 100644
      const Image& image = slot_images[image_id];
      // Using "image.gpu_addr" instead of "gpu_addr" is important because it might be different
      const auto [it, is_new] = image_allocs_table.try_emplace(image.gpu_addr);
-@@ -2681,6 +2725,20 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
+@@ -2683,6 +2727,20 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
          }
      }
      const ImageId new_image_id = slot_images.insert(runtime, new_info, gpu_addr, cpu_addr);
@@ -1900,7 +2146,7 @@ index 77e40f4983..bcfa6a25ed 100644
      Image& new_image = slot_images[new_image_id];
  
      new_image.allocation_tick = frame_tick;
-@@ -2924,6 +2982,9 @@ std::optional<typename TextureCache<P>::BlitImages> TextureCache<P>::GetBlitImag
+@@ -2926,6 +2984,9 @@ std::optional<typename TextureCache<P>::BlitImages> TextureCache<P>::GetBlitImag
              dst_id = InsertImage(dst_info, dst_addr, RelaxedOptions{});
          }
      } while (has_deleted_images);
@@ -1910,7 +2156,7 @@ index 77e40f4983..bcfa6a25ed 100644
      const ImageBase& src_image = slot_images[src_id];
      const ImageBase& dst_image = slot_images[dst_id];
      const bool native_bgr = runtime.HasNativeBgr();
-@@ -2939,6 +3000,9 @@ std::optional<typename TextureCache<P>::BlitImages> TextureCache<P>::GetBlitImag
+@@ -2941,6 +3002,9 @@ std::optional<typename TextureCache<P>::BlitImages> TextureCache<P>::GetBlitImag
              src_id = FindOrInsertImage(src_info, src_addr, RelaxedOptions{});
              dst_id = FindOrInsertImage(dst_info, dst_addr, RelaxedOptions{});
          } while (has_deleted_images);
@@ -1921,7 +2167,7 @@ index 77e40f4983..bcfa6a25ed 100644
      return {BlitImages{
          .dst_id = dst_id,
 diff --git a/src/video_core/texture_cache/texture_cache_base.h b/src/video_core/texture_cache/texture_cache_base.h
-index 3cb544c668..f7008b205e 100644
+index 870554531c..0f8072594c 100644
 --- a/src/video_core/texture_cache/texture_cache_base.h
 +++ b/src/video_core/texture_cache/texture_cache_base.h
 @@ -137,6 +137,7 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
@@ -1942,10 +2188,10 @@ index 3cb544c668..f7008b205e 100644
      /// Find or create an image view in the guest descriptor table
      ImageViewId VisitImageView(u32 index, bool compute);
 diff --git a/src/video_core/vulkan_common/vulkan_device.h b/src/video_core/vulkan_common/vulkan_device.h
-index 93a89d124b..82995eb80b 100644
+index 58d27f7595..4be575e852 100644
 --- a/src/video_core/vulkan_common/vulkan_device.h
 +++ b/src/video_core/vulkan_common/vulkan_device.h
-@@ -422,7 +422,10 @@ public:
+@@ -425,7 +425,10 @@ public:
      FN_MAX_LIMIT_ELEM(DescriptorSetStorageBuffersDynamic) \
      FN_MAX_LIMIT_ELEM(DescriptorSetSampledImages) \
      FN_MAX_LIMIT_ELEM(DescriptorSetStorageImages) \
@@ -2067,10 +2313,10 @@ index 8b9e72b3e3..8ab12bcbf2 100644
          /// Memory type of device-local buffers by usage and flags (CreateBufferInSeparatePool).
          mutable std::unordered_map<u64, u32> buffer_memory_types;
 diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
-index 94e9ddf6ce..3a76e659e5 100644
+index ea6b9e23c5..bc7a593038 100644
 --- a/src/yuzu/main_window.cpp
 +++ b/src/yuzu/main_window.cpp
-@@ -2006,6 +2006,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
+@@ -2031,6 +2031,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
          Settings::UpdateGPUAccuracy();
          LOG_INFO(Config, "Applied recommended MKW settings after per-game configuration");
      }
@@ -2097,10 +2343,10 @@ index 94e9ddf6ce..3a76e659e5 100644
  
      if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
 diff --git a/src/yuzu/main_window.h b/src/yuzu/main_window.h
-index d6b85a992f..71ff93c927 100644
+index b5b060020c..74a49d013a 100644
 --- a/src/yuzu/main_window.h
 +++ b/src/yuzu/main_window.h
-@@ -508,6 +508,8 @@ private:
+@@ -510,6 +510,8 @@ private:
      MultiplayerState* multiplayer_state = nullptr;
      bool use_recommended_mkw_settings = false;
      bool asked_recommended_mkw_settings = false;

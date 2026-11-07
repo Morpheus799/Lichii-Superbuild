@@ -25,13 +25,16 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `32886f755c8f1a08f18b2ed328f4ceef15a5a1d9` (2026-11-07)
+- Base commit: `91d1aada6b0d253885d9eafec889349c492d9744` (2026-11-07)
 - Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
   #295, #149, #185, #197, #203, #215, #232, #241, #397, #398, #410, #412,
   #413, #414, #418, #425, #429, #433, #435, #438, #439, #442, #443, #444,
   #482, #485, #490, #432 (NaN min/max), #436 (QMD release formats), #351
-  (table-pointer pool binding), #504 (updater), #255/#497 (microphone) and
-  #499 (NUP metadata). Those are not re-applied here.
+  (table-pointer pool binding), #504 (updater), #255/#497 (microphone),
+  #499 (NUP metadata), plus #512 (device-loss diagnostics), #515 (mesh
+  point/line output), #518/#519/#526 (clang-cl ThinLTO release builds),
+  #524 (`-fno-unswitch-loops`) and #537 (frame-generation status).
+  Those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
@@ -49,8 +52,27 @@ recommended package. The PGO profile is `eglantine.profdata`, built with Clang 2
 and LLD, using bundled static FFmpeg to avoid the MSYS2 `libva.dll` false
 positive.
 
-The updater is **not wired to this repository yet**. It remains disabled for
-local builds until its release feed and asset naming are adapted here.
+The updater points at this repository's releases (`callme-sy/Lichii-Superbuild`,
+`vN` tags, `Lichii-vN-<platform>` assets). It is enabled in release builds only when
+`LICHII_BUILD_TAG` and `LICHII_BUILD_PLATFORM` are set at configure time.
+
+## OoT Hyrule Field grass: A/B diagnostics
+
+`nx2` currently has a Hyrule Field grass regression. `capy/oot-hyrule-grass-ab`
+(`748963271c`) is an **experiment**, not a fix: it adds four off-by-default
+variables that restore the pre-#351/#432/#436/#515 behaviour one at a time, so
+the responsible change can be identified. The variables are carried here for
+testing only. The full fix is still open upstream as PR #434 (with #395 and #421).
+
+| Variable | Restores |
+|---|---|
+| `EDEN_NX2_AB_FMINMAX=1` | undefined-NaN `FMin`/`FMax`/`FClamp` instead of #432's N variants |
+| `EDEN_NX2_AB_TABLE_CAP_MIB=<n>` | a smaller table-pointer binding cap instead of #351's full mapping |
+| `EDEN_NX2_AB_QMD_STRICT=1` | strict QMD release-format rejection instead of #436's skip |
+| `EDEN_NX2_AB_MESH_TRI_ONLY=1` | triangle-only mesh output instead of #515's point/line support |
+
+Set one at a time in the user's `nx2_switches.txt` and restart. Report which one
+brings the grass back; none are enabled by default and none change stock behaviour.
 
 ## Included fixes
 
@@ -144,6 +166,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout 32886f75
+git checkout 91d1aada
 git apply patches/superbuild.patch
 ```
