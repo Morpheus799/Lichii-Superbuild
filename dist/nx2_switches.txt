@@ -30,13 +30,6 @@ EDEN_NX2_FENCE_BATCH=1
 #EDEN_NX2_FRAMES_AHEAD=1
 
 # --- Workarounds / Debug ---
-# OoT Hyrule Field grass regression: A/B diagnostics from `capy/oot-hyrule-grass-ab`.
-# Off by default. Set ONE at a time, restart, and report which one restores the grass.
-#EDEN_NX2_AB_FMINMAX=1
-#EDEN_NX2_AB_TABLE_CAP_MIB=64
-#EDEN_NX2_AB_QMD_STRICT=1
-#EDEN_NX2_AB_MESH_TRI_ONLY=1
-
 # Terrain/indirect drawing fix for Donkey Kong Bananza: enabled by default. Set to 0 only to leave to GPU.
 #EDEN_NX2_RESETFIX=0
 

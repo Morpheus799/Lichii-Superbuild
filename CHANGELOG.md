@@ -3,6 +3,23 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## v13
+
+- Base: `nx2` `71268a75` — upstream #509 in-place AppImage updater with one
+  rollback copy, and #520 clang-cl build-check CI.
+- **OoT Hyrule Field grass fixed.** Carries all 14 commits of zortos's
+  `capy/oot-hyrule-grass-fix` (`dfde7585e2`), the integration of open fix chain
+  PR #434 / #395 / #421: 64 storage buffers per stage, 64-bit binding masks,
+  rebuild of compute translations whose null pointer slots fill later, keeping
+  every previously bound pointer on rebuild, and per-stage storage limits.
+  Castle Town's near hedges keep their leaves and Hyrule Field's grass stays
+  dense. The branch is still unmerged into `nx2`.
+- Dropped the v12 `capy/oot-hyrule-grass-ab` A/B experiment: with the fix in
+  place there is nothing left to bisect.
+- Updater still points at this repository (`vN` tags), now with in-place
+  AppImage update support from #509.
+- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
+
 ## v12
 
 - Base: `nx2` `91d1aada` — upstream #512 device-loss diagnostics, #515 mesh

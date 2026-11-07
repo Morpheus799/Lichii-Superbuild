@@ -26,10 +26,10 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..d45ed3ce85 100644
+index bc40878ce6..bb17b597f7 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,96 @@
+@@ -1,11 +1,111 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -39,9 +39,25 @@ index bc40878ce6..d45ed3ce85 100644
 +checksums.
  
 -## [Unreleased]
-+## v11
++## v12
  
 -## [0.1.0]
++- Base: `nx2` `91d1aada` — upstream #512 device-loss diagnostics, #515 mesh
++  point/line output, #518/#519/#526 clang-cl ThinLTO release builds,
++  #524 `-fno-unswitch-loops` and #537 frame-generation status.
++- Updater now points at this repository: `callme-sy/Lichii-Superbuild`, `vN`
++  tags and `Lichii-vN-<platform>` assets.
++- Carries `capy/oot-hyrule-grass-ab` A/B diagnostics for the OoT Hyrule Field
++  grass regression. Four off-by-default switches, no change to stock behaviour;
++  the full fix remains open upstream as PR #434.
++- Both Windows packages use bundled static FFmpeg.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
+ 
+-- Initial release candidate
++## v11
++
 +- Base: `nx2` `32886f75` — upstream #351 table-pointer pool binding, #432
 +  NaN min/max, #436 QMD release formats, #504 updater, #255/#497 microphone
 +  capture and #499 NUP metadata.
@@ -50,8 +66,7 @@ index bc40878ce6..d45ed3ce85 100644
 +- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
 +  superbuild fix set.
 +- Windows and Linux, standard and PGO.
- 
--- Initial release candidate
++
 +## v10
 +
 +- Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
@@ -272,10 +287,10 @@ index 48e0ad1f2c..e9d00c5725 100644
  On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..fdfdab49e8
+index 0000000000..334aec3b68
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,149 @@
+@@ -0,0 +1,171 @@
 +# Lichii Superbuild (unofficial)
 +
 +## Credits
@@ -303,13 +318,16 @@ index 0000000000..fdfdab49e8
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `32886f755c8f1a08f18b2ed328f4ceef15a5a1d9` (2026-11-07)
++- Base commit: `91d1aada6b0d253885d9eafec889349c492d9744` (2026-11-07)
 +- Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
 +  #295, #149, #185, #197, #203, #215, #232, #241, #397, #398, #410, #412,
 +  #413, #414, #418, #425, #429, #433, #435, #438, #439, #442, #443, #444,
 +  #482, #485, #490, #432 (NaN min/max), #436 (QMD release formats), #351
-+  (table-pointer pool binding), #504 (updater), #255/#497 (microphone) and
-+  #499 (NUP metadata). Those are not re-applied here.
++  (table-pointer pool binding), #504 (updater), #255/#497 (microphone),
++  #499 (NUP metadata), plus #512 (device-loss diagnostics), #515 (mesh
++  point/line output), #518/#519/#526 (clang-cl ThinLTO release builds),
++  #524 (`-fno-unswitch-loops`) and #537 (frame-generation status).
++  Those are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
@@ -327,8 +345,27 @@ index 0000000000..fdfdab49e8
 +and LLD, using bundled static FFmpeg to avoid the MSYS2 `libva.dll` false
 +positive.
 +
-+The updater is **not wired to this repository yet**. It remains disabled for
-+local builds until its release feed and asset naming are adapted here.
++The updater points at this repository's releases (`callme-sy/Lichii-Superbuild`,
++`vN` tags, `Lichii-vN-<platform>` assets). It is enabled in release builds only when
++`LICHII_BUILD_TAG` and `LICHII_BUILD_PLATFORM` are set at configure time.
++
++## OoT Hyrule Field grass: A/B diagnostics
++
++`nx2` currently has a Hyrule Field grass regression. `capy/oot-hyrule-grass-ab`
++(`748963271c`) is an **experiment**, not a fix: it adds four off-by-default
++variables that restore the pre-#351/#432/#436/#515 behaviour one at a time, so
++the responsible change can be identified. The variables are carried here for
++testing only. The full fix is still open upstream as PR #434 (with #395 and #421).
++
++| Variable | Restores |
++|---|---|
++| `EDEN_NX2_AB_FMINMAX=1` | undefined-NaN `FMin`/`FMax`/`FClamp` instead of #432's N variants |
++| `EDEN_NX2_AB_TABLE_CAP_MIB=<n>` | a smaller table-pointer binding cap instead of #351's full mapping |
++| `EDEN_NX2_AB_QMD_STRICT=1` | strict QMD release-format rejection instead of #436's skip |
++| `EDEN_NX2_AB_MESH_TRI_ONLY=1` | triangle-only mesh output instead of #515's point/line support |
++
++Set one at a time in the user's `nx2_switches.txt` and restart. Report which one
++brings the grass back; none are enabled by default and none change stock behaviour.
 +
 +## Included fixes
 +
@@ -422,14 +459,28 @@ index 0000000000..fdfdab49e8
 +`superbuild`.
 +
 +```bash
-+git checkout 32886f75
++git checkout 91d1aada
 +git apply patches/superbuild.patch
 +```
 diff --git a/dist/nx2_switches.txt b/dist/nx2_switches.txt
-index 095ecdede4..68267cf6bd 100644
+index 095ecdede4..af89e0a5a1 100644
 --- a/dist/nx2_switches.txt
 +++ b/dist/nx2_switches.txt
-@@ -43,3 +43,5 @@ EDEN_NX2_FENCE_BATCH=1
+@@ -30,6 +30,13 @@ EDEN_NX2_FENCE_BATCH=1
+ #EDEN_NX2_FRAMES_AHEAD=1
+ 
+ # --- Workarounds / Debug ---
++# OoT Hyrule Field grass regression: A/B diagnostics from `capy/oot-hyrule-grass-ab`.
++# Off by default. Set ONE at a time, restart, and report which one restores the grass.
++#EDEN_NX2_AB_FMINMAX=1
++#EDEN_NX2_AB_TABLE_CAP_MIB=64
++#EDEN_NX2_AB_QMD_STRICT=1
++#EDEN_NX2_AB_MESH_TRI_ONLY=1
++
+ # Terrain/indirect drawing fix for Donkey Kong Bananza: enabled by default. Set to 0 only to leave to GPU.
+ #EDEN_NX2_RESETFIX=0
+ 
+@@ -43,3 +50,5 @@ EDEN_NX2_FENCE_BATCH=1
  #EDEN_NX2_SPLIT_SKIP=1
  #EDEN_NX2_AUTO_STUB=1
  #EDEN_NX2_KEEP_ASTC=1
@@ -643,66 +694,6 @@ index 94ee0b33a6..c0a57a100a 100644
          return std::nullopt;
      }
      return number;
-diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
-index 94b6c2d821..b1ff55c3d2 100644
---- a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
-+++ b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
-@@ -3,6 +3,8 @@
- // SPDX-FileCopyrightText: Copyright 2021 yuzu Emulator Project
- // SPDX-License-Identifier: GPL-2.0-or-later
- 
-+#include <cstdlib>
-+
- #include "shader_recompiler/backend/spirv/emit_spirv_instructions.h"
- #include "shader_recompiler/backend/spirv/spirv_emit_context.h"
- #include "shader_recompiler/frontend/ir/modifiers.h"
-@@ -19,7 +21,15 @@ Id Decorate(EmitContext& ctx, IR::Inst* inst, Id op) {
- 
- // Maxwell's FMNMX and .SAT return the non-NaN operand (NaN saturates to 0). FMin/FMax/FClamp leave
- // NaN undefined and AMD's Windows compiler passes it through, so use the NaN-defined N variants.
-+bool AbFMinMax() {
-+    static const bool enabled{std::getenv("EDEN_NX2_AB_FMINMAX") != nullptr};
-+    return enabled;
-+}
-+
- Id Clamp(EmitContext& ctx, Id type, Id value, Id zero, Id one) {
-+    if (AbFMinMax()) {
-+        return ctx.OpFClamp(type, value, zero, one);
-+    }
-     return ctx.OpNMin(type, ctx.OpNMax(type, value, zero), one);
- }
- 
-@@ -83,18 +93,30 @@ Id EmitFPFma64(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c) {
- }
- 
- Id EmitFPMax32(EmitContext& ctx, Id a, Id b) {
-+    if (AbFMinMax()) {
-+        return ctx.OpFMax(ctx.F32[1], a, b);
-+    }
-     return ctx.OpNMax(ctx.F32[1], a, b);
- }
- 
- Id EmitFPMax64(EmitContext& ctx, Id a, Id b) {
-+    if (AbFMinMax()) {
-+        return ctx.OpFMax(ctx.F64[1], a, b);
-+    }
-     return ctx.OpNMax(ctx.F64[1], a, b);
- }
- 
- Id EmitFPMin32(EmitContext& ctx, Id a, Id b) {
-+    if (AbFMinMax()) {
-+        return ctx.OpFMin(ctx.F32[1], a, b);
-+    }
-     return ctx.OpNMin(ctx.F32[1], a, b);
- }
- 
- Id EmitFPMin64(EmitContext& ctx, Id a, Id b) {
-+    if (AbFMinMax()) {
-+        return ctx.OpFMin(ctx.F64[1], a, b);
-+    }
-     return ctx.OpNMin(ctx.F64[1], a, b);
- }
- 
 diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
 index c8f3ae570d..1896614526 100644
 --- a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
@@ -810,30 +801,283 @@ index c8f3ae570d..1896614526 100644
          std::array<Id, 2> packed;
          for (u32 row = 0; row < 2; ++row)
              packed[row] = ctx.OpPackHalf2x16(u32ty, ctx.OpCompositeConstruct(ctx.F32[2],
+diff --git a/src/shader_recompiler/environment.h b/src/shader_recompiler/environment.h
+index 857553ccbd..f7d104a791 100644
+--- a/src/shader_recompiler/environment.h
++++ b/src/shader_recompiler/environment.h
+@@ -7,6 +7,8 @@
+ #pragma once
+ 
+ #include <array>
++#include <utility>
++#include <vector>
+ #include "common/container/unordered_map.h"
+ 
+ #include "common/common_types.h"
+@@ -91,6 +93,17 @@ public:
+         return true;
+     }
+ 
++    /// Native programs: (index, offset) slots classified as non-pointers because they were null.
++    [[nodiscard]] virtual std::vector<std::pair<u32, u32>> NullStoragePointerSlots() const {
++        return {};
++    }
++
++    /// Native programs: the classified slots bound as storage buffer pointers, as the sorted keys
++    /// of their classification (direct and pointer-table slots).
++    [[nodiscard]] virtual std::vector<u64> MappedStoragePointerKeys() const {
++        return {};
++    }
++
+     [[nodiscard]] virtual u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) = 0;
+ 
+     [[nodiscard]] virtual TextureType ReadTextureType(u32 raw_handle) = 0;
 diff --git a/src/shader_recompiler/frontend/maxwell/translate_program.cpp b/src/shader_recompiler/frontend/maxwell/translate_program.cpp
-index 65966124f0..f17b6c9225 100644
+index 65966124f0..c3d754386d 100644
 --- a/src/shader_recompiler/frontend/maxwell/translate_program.cpp
 +++ b/src/shader_recompiler/frontend/maxwell/translate_program.cpp
-@@ -7,6 +7,7 @@
- #include <algorithm>
- #include <array>
- #include <bitset>
-+#include <cstdlib>
- #include <memory>
- #include <optional>
- #include <vector>
-@@ -411,7 +412,8 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
-         const u32 threads{program.stage == Stage::Task ? init & 0x3f : (shader_b >> 20) & 0x3f};
-         program.workgroup_size = {(std::max)(threads, 1U), 1, 1};
-         if (program.stage == Stage::Mesh) {
--            if (program.mesh.topology != 0 && program.mesh.topology != 1 &&
-+            static const bool ab_tri_only{std::getenv("EDEN_NX2_AB_MESH_TRI_ONLY") != nullptr};
-+            if ((ab_tri_only || (program.mesh.topology != 0 && program.mesh.topology != 1)) &&
-                 program.mesh.topology != 4) {
-                 throw NotImplementedException("Mesh output topology {} (SET_MESH_SHADER_A {:#010x})",
-                                               program.mesh.topology, shader_a);
+@@ -90,7 +90,7 @@ void CollectInterpolationInfo(Environment& env, IR::Program& program) {
+     }
+ }
+ 
+-void AddNVNStorageBuffers(IR::Program& program) {
++void AddNVNStorageBuffers(IR::Program& program, const HostTranslateInfo& host_info) {
+     if (!program.info.uses_global_memory) {
+         return;
+     }
+@@ -130,6 +130,11 @@ void AddNVNStorageBuffers(IR::Program& program) {
+             it->is_written |= program.info.stores_global_memory;
+             continue;
+         }
++        if (descs.size() >= Optimization::StorageBufferLimit(host_info)) {
++            throw NotImplementedException("Binding {} storage buffers to a stage that binds {}",
++                                          descs.size() + 1,
++                                          Optimization::StorageBufferLimit(host_info));
++        }
+         descs.push_back({
+             .cbuf_index = driver_cbuf,
+             .cbuf_offset = offset,
+@@ -475,13 +480,13 @@ IR::Program TranslateProgram(ObjectPool<IR::Inst>& inst_pool, ObjectPool<IR::Blo
+     Optimization::VendorWorkaroundPass(program);
+ 
+     CollectInterpolationInfo(env, program);
+-    AddNVNStorageBuffers(program);
++    AddNVNStorageBuffers(program, normalized_host_info);
+     Optimization::LimitSampledTextureArrays(program, normalized_host_info);
+     return program;
+ }
+ 
+ IR::Program MergeDualVertexPrograms(IR::Program& vertex_a, IR::Program& vertex_b,
+-                                    Environment& env_vertex_b) {
++                                    Environment& env_vertex_b, const HostTranslateInfo& host_info) {
+     IR::Program result{};
+     Optimization::VertexATransformPass(vertex_a);
+     Optimization::VertexBTransformPass(vertex_b);
+@@ -504,7 +509,9 @@ IR::Program MergeDualVertexPrograms(IR::Program& vertex_a, IR::Program& vertex_b
+     result.info.stores.mask |= vertex_b.info.stores.mask;
+ 
+     Optimization::JoinTextureInfo(result.info, vertex_b.info);
+-    Optimization::JoinStorageInfo(result.info, vertex_b.info);
++    // The two halves are one stage: their storage buffers share its limit.
++    Optimization::JoinStorageInfo(result.info, vertex_b.info,
++                                  Optimization::StorageBufferLimit(host_info));
+     Optimization::DeadCodeEliminationPass(result);
+     if (Settings::values.renderer_debug) {
+         Optimization::VerificationPass(result);
+diff --git a/src/shader_recompiler/frontend/maxwell/translate_program.h b/src/shader_recompiler/frontend/maxwell/translate_program.h
+index 497afe7cb9..8e58f32288 100644
+--- a/src/shader_recompiler/frontend/maxwell/translate_program.h
++++ b/src/shader_recompiler/frontend/maxwell/translate_program.h
+@@ -21,7 +21,8 @@ namespace Shader::Maxwell {
+                                            Flow::CFG& cfg, const HostTranslateInfo& host_info);
+ 
+ [[nodiscard]] IR::Program MergeDualVertexPrograms(IR::Program& vertex_a, IR::Program& vertex_b,
+-                                                  Environment& env_vertex_b);
++                                                  Environment& env_vertex_b,
++                                                  const HostTranslateInfo& host_info);
+ 
+ void ConvertLegacyToGeneric(IR::Program& program, const RuntimeInfo& runtime_info);
+ 
+diff --git a/src/shader_recompiler/host_translate_info.h b/src/shader_recompiler/host_translate_info.h
+index 1f77b70d72..a188af520f 100644
+--- a/src/shader_recompiler/host_translate_info.h
++++ b/src/shader_recompiler/host_translate_info.h
+@@ -20,6 +20,7 @@ struct HostTranslateInfo {
+     u64 min_ssbo_alignment{};            ///< Minimum alignment supported by the device for SSBOs
+     u32 max_per_stage_descriptor_sampled_images{}; ///< maximum sampled descriptors per stage
+     u32 max_per_stage_resources{};                 ///< maximum resources per stage
++    u32 max_per_stage_descriptor_storage_buffers{}; ///< maximum storage buffers per stage
+     u32 max_descriptor_set_samplers{};
+     u32 max_descriptor_set_uniform_buffers{};
+     u32 max_descriptor_set_uniform_buffers_dynamic{};
+@@ -48,6 +49,7 @@ struct HostTranslateInfo {
+         }
+         ApplyDescriptorLimitFallback(max_per_stage_descriptor_sampled_images);
+         ApplyDescriptorLimitFallback(max_per_stage_resources);
++        ApplyDescriptorLimitFallback(max_per_stage_descriptor_storage_buffers);
+         ApplyDescriptorLimitFallback(max_descriptor_set_samplers);
+         ApplyDescriptorLimitFallback(max_descriptor_set_uniform_buffers);
+         ApplyDescriptorLimitFallback(max_descriptor_set_uniform_buffers_dynamic);
+diff --git a/src/shader_recompiler/ir_opt/global_memory_to_storage_buffer_pass.cpp b/src/shader_recompiler/ir_opt/global_memory_to_storage_buffer_pass.cpp
+index 6cdf73026e..6841333c71 100644
+--- a/src/shader_recompiler/ir_opt/global_memory_to_storage_buffer_pass.cpp
++++ b/src/shader_recompiler/ir_opt/global_memory_to_storage_buffer_pass.cpp
+@@ -19,6 +19,7 @@
+ 
+ #include "common/alignment.h"
+ #include "shader_recompiler/environment.h"
++#include "shader_recompiler/exception.h"
+ #include "shader_recompiler/frontend/ir/basic_block.h"
+ #include "shader_recompiler/frontend/ir/breadth_first_search.h"
+ #include "shader_recompiler/frontend/ir/ir_emitter.h"
+@@ -91,6 +92,9 @@ struct StorageInfo {
+     bool tables_seen{};
+     size_t table_budget{};
+     size_t table_used{};
++    /// The storage buffers the pass without table entries bound; bound again, they take nothing
++    /// from table_budget, which they were left out of.
++    StorageBufferSet counted;
+     small_vector<StorageBufferAddr, 8> table_candidates;
+ };
+ 
+@@ -1383,11 +1387,13 @@ void CollectStorageBuffers(IR::Block& block, IR::Inst& inst, StorageInfo& info,
+                     info.table_candidates.end()) {
+                     const StorageBufferAddr holder{.index = candidate.index,
+                                                    .offset = candidate.offset};
++                    const auto takes_binding = [&info](const StorageBufferAddr& buffer) {
++                        return info.set.find(buffer) == info.set.end() &&
++                               !info.counted.contains(buffer);
++                    };
+                     const size_t added{
+-                        (info.set.find(candidate) == info.set.end() ? 1U : 0U) +
+-                        (candidate.indirect != ~0U && info.set.find(holder) == info.set.end()
+-                             ? 1U
+-                             : 0U)};
++                        (takes_binding(candidate) ? 1U : 0U) +
++                        (candidate.indirect != ~0U && takes_binding(holder) ? 1U : 0U)};
+                     if (info.table_used + added > info.table_budget) {
+                         continue;
+                     }
+@@ -1604,6 +1610,7 @@ void GlobalMemoryToStorageBufferPass(Environment& env, IR::Program& program,
+     if (!has_global_memory) {
+         return;
+     }
++    const size_t max_ssbos{StorageBufferLimit(host_info)};
+     TrackingConditions conditions{program};
+     StorageInfo info;
+     // Without 64-bit integers the backend cannot route global accesses among bound buffers.
+@@ -1622,7 +1629,7 @@ void GlobalMemoryToStorageBufferPass(Environment& env, IR::Program& program,
+         }
+     };
+     collect();
+-    if (info.competing_loaded_bound && info.set.size() > Info::MAX_SSBOS) {
++    if (info.competing_loaded_bound && info.set.size() > max_ssbos) {
+         // Not enough bindings for the loaded pointers that compete with paired ones: keep the
+         // pairs, as if no loaded pointer competed.
+         StorageInfo paired;
+@@ -1632,16 +1639,26 @@ void GlobalMemoryToStorageBufferPass(Environment& env, IR::Program& program,
+         info = std::move(paired);
+         collect();
+     }
+-    if (info.tables_seen && info.set.size() < Info::MAX_SSBOS) {
++    if (info.tables_seen && info.set.size() < max_ssbos) {
+         // Again with pointer table entries, in the bindings the first pass left free.
+         StorageInfo with_tables;
+-        with_tables.iterator_words = std::move(info.iterator_words);
+-        with_tables.atomic_pointers = std::move(info.atomic_pointers);
++        with_tables.iterator_words = info.iterator_words;
++        with_tables.atomic_pointers = info.atomic_pointers;
+         with_tables.bind_competing_loaded = info.bind_competing_loaded;
+         with_tables.tables_enabled = true;
+-        with_tables.table_budget = Info::MAX_SSBOS - info.set.size();
+-        info = std::move(with_tables);
++        with_tables.table_budget = max_ssbos - info.set.size();
++        with_tables.counted = info.set;
++        std::swap(info, with_tables);
+         collect();
++        if (info.set.size() > max_ssbos) {
++            // Never more storage buffers than a stage binds: without the table entries, then.
++            info = std::move(with_tables);
++        }
++    }
++    if (info.set.size() > max_ssbos) {
++        // Binding only some of them would drop the accesses through the others.
++        throw NotImplementedException("Binding {} storage buffers to a stage that binds {}",
++                                      info.set.size(), max_ssbos);
+     }
+     program.info.native_global_bounds |= info.native_runtime_bounds;
+     for (const StorageBufferAddr& storage_buffer : info.set) {
+@@ -1665,7 +1682,18 @@ void GlobalMemoryToStorageBufferPass(Environment& env, IR::Program& program,
+     }
+ }
+ 
+-void JoinStorageInfo(Info& base, Info& source) {
++size_t StorageBufferLimit(const HostTranslateInfo& host_info) {
++    size_t limit{Info::MAX_SSBOS};
++    for (const u32 device_limit : {host_info.max_per_stage_descriptor_storage_buffers,
++                                   host_info.max_descriptor_set_storage_buffers}) {
++        if (device_limit != 0) {
++            limit = (std::min)(limit, size_t{device_limit});
++        }
++    }
++    return limit;
++}
++
++void JoinStorageInfo(Info& base, Info& source, size_t limit) {
+     base.requires_coherent_global_memory |= source.requires_coherent_global_memory;
+     base.native_global_bounds |= source.native_global_bounds;
+     auto& descriptors = base.storage_buffers_descriptors;
+@@ -1679,6 +1707,10 @@ void JoinStorageInfo(Info& base, Info& source) {
+             it->is_written |= desc.is_written;
+             continue;
+         }
++        if (descriptors.size() >= limit) {
++            throw NotImplementedException("Binding {} storage buffers to a stage that binds {}",
++                                          descriptors.size() + 1, limit);
++        }
+         descriptors.push_back(desc);
+     }
+ }
+diff --git a/src/shader_recompiler/ir_opt/passes.h b/src/shader_recompiler/ir_opt/passes.h
+index 2c559b2e30..c6335ac81b 100644
+--- a/src/shader_recompiler/ir_opt/passes.h
++++ b/src/shader_recompiler/ir_opt/passes.h
+@@ -22,6 +22,9 @@ void DeadCodeEliminationPass(IR::Program& program);
+ void GeometryCompactionPass(IR::Program& program, const HostTranslateInfo& host_info);
+ void GlobalMemoryToStorageBufferPass(Environment& env, IR::Program& program,
+                                      const HostTranslateInfo& host_info);
++/// How many storage buffers a program may bind: MAX_SSBOS, or fewer if the device's per-stage or
++/// descriptor set limit is lower
++size_t StorageBufferLimit(const HostTranslateInfo& host_info);
+ void IdentityRemovalPass(IR::Program& program);
+ void LowerFp64ToFp32(IR::Program& program);
+ void LowerFp16ToFp32(IR::Program& program);
+@@ -41,6 +44,7 @@ bool HasBrokenPattern(const IR::Program& program);
+ void VertexATransformPass(IR::Program& program);
+ void VertexBTransformPass(IR::Program& program);
+ void JoinTextureInfo(Info& base, Info& source);
+-void JoinStorageInfo(Info& base, Info& source);
++/// Adds the storage buffers of source to base, at most limit in all
++void JoinStorageInfo(Info& base, Info& source, size_t limit = Info::MAX_SSBOS);
+ 
+ } // namespace Shader::Optimization
+diff --git a/src/shader_recompiler/shader_info.h b/src/shader_recompiler/shader_info.h
+index b1ad70a850..95d366cf2e 100644
+--- a/src/shader_recompiler/shader_info.h
++++ b/src/shader_recompiler/shader_info.h
+@@ -279,7 +279,9 @@ struct MeshInfo {
+ struct Info {
+     static constexpr size_t MAX_INDIRECT_CBUFS{14};
+     static constexpr size_t MAX_CBUFS{18};
+-    static constexpr size_t MAX_SSBOS{32};
++    /// Native (Switch 2) programs take their storage buffers from raw pointers, as many as they
++    /// read: Ocarina of Time's foliage culling binds 37 for its lists and per-type instance tables.
++    static constexpr size_t MAX_SSBOS{64};
+ 
+     bool is_task{}; ///< Switch 2 task program (Stage::Task)
+     bool is_mesh{}; ///< Switch 2 mesh program (Stage::Mesh)
 diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
-index 195b9b6c42..1b81321d1c 100644
+index e76417470a..ca5af62a48 100644
 --- a/src/tests/CMakeLists.txt
 +++ b/src/tests/CMakeLists.txt
 @@ -54,6 +54,7 @@ add_executable(tests
@@ -882,6 +1126,28 @@ index 481f5c5e1d..48dd887b97 100644
 +    CHECK(settings->async_presentation.GetValue());
 +    CHECK(settings->use_asynchronous_shaders.GetValue());
 +}
+diff --git a/src/tests/video_core/async_shader_emission.cpp b/src/tests/video_core/async_shader_emission.cpp
+index 603629b35a..ea2928441a 100644
+--- a/src/tests/video_core/async_shader_emission.cpp
++++ b/src/tests/video_core/async_shader_emission.cpp
+@@ -15,6 +15,7 @@
+ #include "shader_recompiler/frontend/ir/ir_emitter.h"
+ #include "shader_recompiler/frontend/ir/program.h"
+ #include "shader_recompiler/frontend/maxwell/translate_program.h"
++#include "shader_recompiler/host_translate_info.h"
+ #include "shader_recompiler/object_pool.h"
+ #include "video_core/renderer_vulkan/pipeline_build.h"
+ #include "video_core/renderer_vulkan/pipeline_shader_emission.h"
+@@ -140,7 +141,8 @@ struct GraphicsPrograms {
+             {{}, IR::AbstractSyntaxNode::Type::Return},
+         };
+         VertexEnvironment env;
+-        programs[0] = Shader::Maxwell::MergeDualVertexPrograms(vertex_a, vertex_b, env);
++        programs[0] = Shader::Maxwell::MergeDualVertexPrograms(vertex_a, vertex_b, env,
++                                                               Shader::HostTranslateInfo{});
+         for (size_t index = 0; index < programs[0].blocks.size(); ++index) {
+             programs[0].blocks[index]->SetOrder(index);
+         }
 diff --git a/src/tests/video_core/framebuffer_limits.cpp b/src/tests/video_core/framebuffer_limits.cpp
 new file mode 100644
 index 0000000000..e92c9fddb7
@@ -1235,6 +1501,187 @@ index 918fcf1c0e..e9040af774 100644
      }
  }
  
+diff --git a/src/tests/video_core/storage_binding_capacity.cpp b/src/tests/video_core/storage_binding_capacity.cpp
+index 0c9fc33527..0d047da6b2 100644
+--- a/src/tests/video_core/storage_binding_capacity.cpp
++++ b/src/tests/video_core/storage_binding_capacity.cpp
+@@ -13,15 +13,15 @@ TEST_CASE("Buffer cache holds every shader storage binding", "[video_core][stora
+     using GraphicsBindings = decltype(std::declval<Channel>().storage_buffers)::value_type;
+     STATIC_REQUIRE(std::tuple_size_v<ComputeBindings> == Shader::Info::MAX_SSBOS);
+     STATIC_REQUIRE(std::tuple_size_v<GraphicsBindings> == Shader::Info::MAX_SSBOS);
+-    STATIC_REQUIRE(Shader::Info::MAX_SSBOS <= 32);
++    STATIC_REQUIRE(Shader::Info::MAX_SSBOS <= 64);
+ 
+     ComputeBindings compute{};
+     GraphicsBindings graphics{};
+-    u32 enabled{};
++    u64 enabled{};
+     for (u32 index = 0; index < Shader::Info::MAX_SSBOS; ++index) {
+         compute.at(index).size = index + 1;
+         graphics.at(index).size = index + 1;
+-        enabled |= u32{1} << index;
++        enabled |= u64{1} << index;
+     }
+     // Bananza's 18-buffer compute shader previously lost slots 16 and 17,
+     // shifting the image descriptors that followed them.
+diff --git a/src/tests/video_core/storage_buffer_pointer_tracking.cpp b/src/tests/video_core/storage_buffer_pointer_tracking.cpp
+index d5a44d8b8d..7c3999b06b 100644
+--- a/src/tests/video_core/storage_buffer_pointer_tracking.cpp
++++ b/src/tests/video_core/storage_buffer_pointer_tracking.cpp
+@@ -9,8 +9,9 @@
+ #include <catch2/catch_test_macros.hpp>
+ #include <catch2/generators/catch_generators.hpp>
+ 
+-#include "shader_recompiler/environment.h"
+ #include "shader_recompiler/backend/nvn_storage_descriptor.h"
++#include "shader_recompiler/environment.h"
++#include "shader_recompiler/exception.h"
+ #include "shader_recompiler/frontend/ir/ir_emitter.h"
+ #include "shader_recompiler/host_translate_info.h"
+ #include "shader_recompiler/ir_opt/passes.h"
+@@ -53,6 +54,8 @@ struct KernelProgram {
+     IR::Program program;
+     TestEnvironment env;
+     bool int64{true};
++    u32 storage_buffer_limit{};     ///< The stage's storage buffer limit, none when 0
++    u32 set_storage_buffer_limit{}; ///< The descriptor set's storage buffer limit, none when 0
+ 
+     KernelProgram() {
+         program.stage = Shader::Stage::Compute;
+@@ -64,6 +67,8 @@ struct KernelProgram {
+         Shader::HostTranslateInfo host{};
+         host.min_ssbo_alignment = 16;
+         host.support_int64 = int64;
++        host.max_per_stage_descriptor_storage_buffers = storage_buffer_limit;
++        host.max_descriptor_set_storage_buffers = set_storage_buffer_limit;
+         Shader::Optimization::GlobalMemoryToStorageBufferPass(env, program, host);
+         std::vector<u32> offsets;
+         for (const auto& descriptor : program.info.storage_buffers_descriptors) {
+@@ -475,6 +480,124 @@ TEST_CASE("Loaded pointers that compete with a pair do not take the last storage
+     CHECK(program.Count(IR::Opcode::LoadGlobal128) == 0);
+ }
+ 
++// The loop reads its records through the table entry at *c0[0x30] or *c0[0x38], loaded before
++// it. That load binds c0[0x30] and c0[0x38] in the first pass, with `pointers` more pointers.
++void EmitTableLoop(KernelProgram& fixture, u32 pointers) {
++    fixture.env.native = true;
++    fixture.entry.AddBranch(&fixture.loop);
++    fixture.loop.AddBranch(&fixture.loop);
++    fixture.program.blocks = {&fixture.entry, &fixture.loop};
++    fixture.program.post_order_blocks = {&fixture.loop, &fixture.entry};
++    IR::IREmitter entry{fixture.entry};
++    const IR::U32 lane{entry.LocalInvocationIdX()};
++    const IR::U1 first{entry.ILessThan(lane, entry.Imm32(16), false)};
++    const IR::U32 holder_low{entry.Select(first, Word(entry, 0x30), Word(entry, 0x38))};
++    const IR::U32 holder_high{entry.Select(first, Word(entry, 0x34), Word(entry, 0x3c))};
++    const IR::Value table{entry.LoadGlobal64(Address(entry, holder_low, holder_high))};
++    for (u32 slot = 0; slot < pointers; ++slot) {
++        const u32 offset{0x100 + slot * 8};
++        static_cast<void>(
++            entry.LoadGlobal32(Address(entry, Word(entry, offset), Word(entry, offset + 4))));
++    }
++    IR::IREmitter body{fixture.loop};
++    const IR::U32 record{body.IAdd(IR::U32{body.CompositeExtract(table, 0)},
++                                   body.ShiftLeftLogical(lane, body.Imm32(4)))};
++    static_cast<void>(
++        body.LoadGlobal128(Address(body, record, IR::U32{body.CompositeExtract(table, 1)})));
++}
++
++TEST_CASE("Pointer table entries are charged only for bindings the first pass left free",
++          "[shader][storage_buffer]") {
++    // The first pass leaves a binding for each entry. The loop is collected first: charged for its
++    // holder as well, the first entry shut out the second, as Ocarina of Time's foliage culling
++    // compute 331e607152ce78d5 bound 4 of its 8 per-type instance tables.
++    KernelProgram fixture;
++    EmitTableLoop(fixture, Shader::Info::MAX_SSBOS - 4);
++
++    CHECK(fixture.TrackedOffsets().size() == Shader::Info::MAX_SSBOS);
++    CHECK(std::ranges::count_if(fixture.program.info.storage_buffers_descriptors,
++                                [](const auto& desc) { return desc.indirect_offset != ~0U; }) == 2);
++}
++
++TEST_CASE("Pointer table entries stay within the stage's storage buffer limit",
++          "[shader][storage_buffer]") {
++    // The stage binds 31 storage buffers: the first pass leaves one binding, for one entry.
++    KernelProgram fixture;
++    fixture.storage_buffer_limit = 31;
++    EmitTableLoop(fixture, 28);
++
++    CHECK(fixture.TrackedOffsets().size() == 31);
++    CHECK(std::ranges::count_if(fixture.program.info.storage_buffers_descriptors,
++                                [](const auto& desc) { return desc.indirect_offset != ~0U; }) == 1);
++}
++
++TEST_CASE("Programs that read more pointers than a stage binds are rejected",
++          "[shader][storage_buffer]") {
++    KernelProgram fixture;
++    fixture.env.native = true;
++    SECTION("Stage limit") {
++        fixture.storage_buffer_limit = 4;
++    }
++    SECTION("Descriptor set limit") {
++        fixture.set_storage_buffer_limit = 4;
++    }
++    IR::IREmitter ir{fixture.entry};
++    for (u32 slot = 0; slot < 5; ++slot) {
++        const u32 offset{0x100 + slot * 8};
++        static_cast<void>(ir.LoadGlobal32(Address(ir, Word(ir, offset), Word(ir, offset + 4))));
++    }
++
++    CHECK_THROWS_AS(fixture.TrackedOffsets(), Shader::NotImplementedException);
++}
++
++TEST_CASE("Dual vertex halves that bind more storage buffers than the stage are rejected",
++          "[shader][storage_buffer]") {
++    // Vertex B's buffers join Vertex A's; one they share counts once.
++    Shader::Info base;
++    base.storage_buffers_descriptors.push_back({.cbuf_index = 0, .cbuf_offset = 0x110, .count = 1});
++    Shader::Info source;
++    source.storage_buffers_descriptors.push_back(
++        {.cbuf_index = 0, .cbuf_offset = 0x110, .count = 1});
++    source.storage_buffers_descriptors.push_back(
++        {.cbuf_index = 0, .cbuf_offset = 0x120, .count = 1});
++    SECTION("Within the limit") {
++        Shader::Optimization::JoinStorageInfo(base, source, 2);
++        CHECK(base.storage_buffers_descriptors.size() == 2);
++    }
++    SECTION("Past the limit") {
++        source.storage_buffers_descriptors.push_back(
++            {.cbuf_index = 0, .cbuf_offset = 0x130, .count = 1});
++        CHECK_THROWS_AS(Shader::Optimization::JoinStorageInfo(base, source, 2),
++                        Shader::NotImplementedException);
++    }
++}
++
++TEST_CASE("Pointer table entries that would overflow the storage buffers are left out",
++          "[shader][storage_buffer]") {
++    // Records at c0[0x30] or in the table *c0[0x38], at an offset c0[0x40] the environment cannot
++    // tell from a pointer. The table entry competes with the pair, so with it the access binds
++    // every candidate, c0[0x40] too: 33 storage buffers with 29 more pointers. The program keeps
++    // the 30 of the pass without table entries.
++    KernelProgram fixture;
++    fixture.env.native = true;
++    IR::IREmitter ir{fixture.entry};
++    const IR::Value table{
++        ir.LoadGlobal64(ir.PackUint2x32(ir.GetCbuf(ir.Imm32(0), ir.Imm32(0x38), 64, false)))};
++    const IR::U1 direct{ir.ILessThan(ir.LocalInvocationIdX(), ir.Imm32(16), false)};
++    const IR::U32 low{ir.Select(direct, Word(ir, 0x30), IR::U32{ir.CompositeExtract(table, 0)})};
++    const IR::U32 high{ir.Select(direct, Word(ir, 0x34), IR::U32{ir.CompositeExtract(table, 1)})};
++    static_cast<void>(ir.LoadGlobal128(Address(ir, ir.IAdd(low, Word(ir, 0x40)), high)));
++    for (u32 slot = 0; slot < Shader::Info::MAX_SSBOS - 3; ++slot) {
++        const u32 offset{0x100 + slot * 8};
++        static_cast<void>(ir.LoadGlobal32(Address(ir, Word(ir, offset), Word(ir, offset + 4))));
++    }
++
++    CHECK(fixture.TrackedOffsets().size() == Shader::Info::MAX_SSBOS - 2);
++    CHECK_FALSE(fixture.program.info.native_global_bounds);
++    CHECK(std::ranges::none_of(fixture.program.info.storage_buffers_descriptors,
++                               [](const auto& desc) { return desc.indirect_offset != ~0U; }));
++}
++
+ TEST_CASE("NVN fallback descriptors use guest slots rather than compact binding indices",
+           "[shader][storage_buffer]") {
+     Shader::Info info{};
 diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
 index ddc85e087a..c61485bc1d 100644
 --- a/src/video_core/CMakeLists.txt
@@ -1248,7 +1695,7 @@ index ddc85e087a..c61485bc1d 100644
      renderer_vulkan/maxwell_to_vk.h
      renderer_vulkan/pipeline_build.h
 diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
-index ca414b2393..7e5102df40 100644
+index ca414b2393..bd4e4df351 100644
 --- a/src/video_core/buffer_cache/buffer_cache.h
 +++ b/src/video_core/buffer_cache/buffer_cache.h
 @@ -21,6 +21,7 @@
@@ -1275,6 +1722,28 @@ index ca414b2393..7e5102df40 100644
          // Switch 2 titles: upload the CPU's bytes into the buffer instead, as CachedWriteMemory
          // does, so the page stays GPU-owned and nothing waits for the host GPU.
          static const int forced = [] {
+@@ -720,8 +726,8 @@ bool BufferCache<P>::BindGraphicsStorageBuffer(size_t stage, size_t ssbo_index,
+             }
+         }
+     }
+-    channel_state->enabled_storage_buffers[stage] |= 1U << ssbo_index;
+-    channel_state->written_storage_buffers[stage] |= (is_written ? 1U : 0U) << ssbo_index;
++    channel_state->enabled_storage_buffers[stage] |= u64{1} << ssbo_index;
++    channel_state->written_storage_buffers[stage] |= u64{is_written ? 1U : 0U} << ssbo_index;
+     if constexpr (requires { runtime.ShouldLimitDynamicStorageBuffers(); }) {
+         if (runtime.ShouldLimitDynamicStorageBuffers() && !already_enabled) {
+             ++channel_state->total_graphics_storage_buffers;
+@@ -809,8 +815,8 @@ void BufferCache<P>::BindComputeStorageBuffer(size_t ssbo_index, u32 cbuf_index,
+             }
+         }
+     }
+-    channel_state->enabled_compute_storage_buffers |= 1U << ssbo_index;
+-    channel_state->written_compute_storage_buffers |= (is_written ? 1U : 0U) << ssbo_index;
++    channel_state->enabled_compute_storage_buffers |= u64{1} << ssbo_index;
++    channel_state->written_compute_storage_buffers |= u64{is_written ? 1U : 0U} << ssbo_index;
+     if constexpr (requires { runtime.ShouldLimitDynamicStorageBuffers(); }) {
+         if (runtime.ShouldLimitDynamicStorageBuffers() && !already_enabled) {
+             ++channel_state->total_compute_storage_buffers;
 @@ -1398,6 +1404,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
      // Native programs keep tables next to their code in a 64 KiB bank read with indirect offsets
      // (Splatoon Raiders: the dialogue box corners in c1). Writes to that memory can go unnoticed by
@@ -1283,31 +1752,45 @@ index ca414b2393..7e5102df40 100644
      if (has_host_buffer && (*channel_state->uniform_buffer_sizes)[stage][index] == 0x10000 &&
          size != 0 && gpu_memory != nullptr && gpu_memory->UsesNativeTiling() &&
          (Nx2Perf::Verify() || !native_indirect_uniforms_this_frame.contains(device_addr)) &&
-@@ -2985,7 +2992,11 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
-             // constant from them. Written pools keep a cap: a write marks the whole binding
-             // GPU-modified.
-             if (table_pointer && !is_written) {
--                const u64 reach = (std::min)(runtime.GetMaxStorageBufferRange(), u64{1_GiB});
-+                static const u64 ab_cap = [] {
-+                    const char* value = std::getenv("EDEN_NX2_AB_TABLE_CAP_MIB");
-+                    return value ? std::strtoull(value, nullptr, 10) << 20 : u64{1_GiB};
-+                }();
-+                const u64 reach = (std::min)({runtime.GetMaxStorageBufferRange(), u64{1_GiB}, ab_cap + 64_KiB});
-                 const u32 limit = static_cast<u32>(reach - (std::min)(reach, u64{64_KiB}));
-                 return (std::min)(memory_layout_size, limit);
-             }
-diff --git a/src/video_core/engines/kepler_compute.cpp b/src/video_core/engines/kepler_compute.cpp
-index ff708ca21c..bceb427554 100644
---- a/src/video_core/engines/kepler_compute.cpp
-+++ b/src/video_core/engines/kepler_compute.cpp
-@@ -50,6 +50,7 @@ KeplerCompute::KeplerCompute(MemoryManager& memory_manager_)
-                      fmt::ptr(this), memory_manager.GetID());
-         };
-     }
-+    native_qmd.strict_release = std::getenv("EDEN_NX2_AB_QMD_STRICT") != nullptr;
-     native_qmd.skipped_release = [](u64 address, std::size_t slot, std::span<const u32, 4> words) {
-         static std::unordered_set<u32> logged;
-         if (!logged.insert(words[1]).second) return;
+diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
+index d60958cbd7..2afb361c40 100644
+--- a/src/video_core/buffer_cache/buffer_cache_base.h
++++ b/src/video_core/buffer_cache/buffer_cache_base.h
+@@ -66,7 +66,7 @@ constexpr u32 NUM_COMPUTE_UNIFORM_BUFFERS = 8;
+ // Native shaders can reference more than 16 storage buffers. Dropping a binding
+ // shifts all following descriptor payloads into the wrong descriptor types.
+ constexpr u32 NUM_STORAGE_BUFFERS = Shader::Info::MAX_SSBOS;
+-static_assert(NUM_STORAGE_BUFFERS <= 32, "storage binding masks must fit u32");
++static_assert(NUM_STORAGE_BUFFERS <= 64, "storage binding masks must fit u64");
+ constexpr u32 NUM_TEXTURE_BUFFERS = 32;
+ constexpr u32 NUM_STAGES = 5;
+ 
+@@ -152,10 +152,10 @@ public:
+     const UniformBufferSizes* uniform_buffer_sizes{};
+     const ComputeUniformBufferSizes* compute_uniform_buffer_sizes{};
+ 
+-    std::array<u32, NUM_STAGES> enabled_storage_buffers{};
+-    std::array<u32, NUM_STAGES> written_storage_buffers{};
+-    u32 enabled_compute_storage_buffers = 0;
+-    u32 written_compute_storage_buffers = 0;
++    std::array<u64, NUM_STAGES> enabled_storage_buffers{};
++    std::array<u64, NUM_STAGES> written_storage_buffers{};
++    u64 enabled_compute_storage_buffers = 0;
++    u64 written_compute_storage_buffers = 0;
+ 
+     u32 total_graphics_storage_buffers = 0;
+     u32 total_compute_storage_buffers = 0;
+@@ -467,8 +467,8 @@ public:
+     std::unordered_set<DAddr> native_indirect_uniforms_this_frame;
+ 
+ private:
+-    template <typename Func>
+-    static void ForEachEnabledBit(u32 enabled_mask, Func&& func) {
++    template <typename Mask, typename Func>
++    static void ForEachEnabledBit(Mask enabled_mask, Func&& func) {
+         for (u32 index = 0; enabled_mask != 0; ++index, enabled_mask >>= 1) {
+             const int disabled_bits = std::countr_zero(enabled_mask);
+             index += disabled_bits;
 diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
 index f32fab777d..f537cb72cd 100644
 --- a/src/video_core/gpu.cpp
@@ -1475,34 +1958,6 @@ index f213417953..45b96bdc42 100644
  
      if (block) {
          state.cv.wait(lk, thread.get_stop_token(), [this, fence] {
-diff --git a/src/video_core/native_qmd.h b/src/video_core/native_qmd.h
-index f32afb363b..e0b2c3e988 100644
---- a/src/video_core/native_qmd.h
-+++ b/src/video_core/native_qmd.h
-@@ -41,6 +41,7 @@ public:
-     std::function<void(std::string_view, Address, std::int32_t)> trace;
-     // Optional diagnostics: called with the QMD, slot and raw words of a release it skips.
-     std::function<void(Address, std::size_t, std::span<const Word, 4>)> skipped_release;
-+    bool strict_release{};
-     // QMD V03_00 release flags: 7:0 address high, 19 membar, 22:20 reduction op, 23 enable,
-     // 25:24 reduction format, 26 reduction enable, 28:27 non-blocking interrupt, 29 64-bit
-     // payload, 31:30 structure size (0 four words with timestamp, 1 one word, 2 two words).
-@@ -109,6 +110,15 @@ public:
-             if (!read(request.address, state.descriptor)) return "unmapped QMD";
-             const auto qmd = state.descriptor;
-             if ((qmd[18] & 0xff) != 0x30 || (qmd[4] & 0x100)) return "unsupported QMD version or queue";
-+            if (strict_release) {
-+                for (const Word base : ReleaseSlots) {
-+                    const Word flags = qmd[base + 1];
-+                    if (!(flags & (1U << 23))) continue;
-+                    const bool add = (flags & (1U << 26)) != 0;
-+                    if ((flags & (0x3bU << 24)) || (flags >> 30) != 1 ||
-+                        (add && (flags & (7U << 20)))) return "unsupported QMD release format";
-+                }
-+            }
-             // A program Eden can't run is skipped, but the QMD still completes: its releases
-             // are what other queues and the CPU wait on (the console never fails a launch).
-             const bool dispatched = !(qmd[12] && (qmd[13] & 0xffff) && (qmd[14] & 0xffff)) || dispatch(qmd);
 diff --git a/src/video_core/nx2.h b/src/video_core/nx2.h
 index 7431fc5e37..d070270fbf 100644
 --- a/src/video_core/nx2.h
@@ -1737,6 +2192,19 @@ index d4801cc140..a94473afc0 100644
      std::mutex cache_mutex;
  
      struct QueryCacheBaseImpl;
+diff --git a/src/video_core/renderer_opengl/gl_shader_cache.cpp b/src/video_core/renderer_opengl/gl_shader_cache.cpp
+index 5addeb2739..2a026dae63 100644
+--- a/src/video_core/renderer_opengl/gl_shader_cache.cpp
++++ b/src/video_core/renderer_opengl/gl_shader_cache.cpp
+@@ -517,7 +517,7 @@ std::unique_ptr<GraphicsPipeline> ShaderCache::CreateGraphicsPipeline(
+             auto& program_va{programs[0]};
+             auto program_vb{TranslateProgram(pools.inst, pools.block, env, cfg, host_info)};
+             total_storage_buffers += Shader::NumDescriptors(program_vb.info.storage_buffers_descriptors);
+-            programs[index] = MergeDualVertexPrograms(program_va, program_vb, env);
++            programs[index] = MergeDualVertexPrograms(program_va, program_vb, env, host_info);
+         }
+ 
+         if (programs[index].info.requires_layer_emulation) {
 diff --git a/src/video_core/renderer_vulkan/framebuffer_limits.h b/src/video_core/renderer_vulkan/framebuffer_limits.h
 new file mode 100644
 index 0000000000..d11cf19868
@@ -1770,6 +2238,303 @@ index 0000000000..d11cf19868
 +}
 +
 +} // namespace Vulkan
+diff --git a/src/video_core/renderer_vulkan/vk_compute_pipeline.cpp b/src/video_core/renderer_vulkan/vk_compute_pipeline.cpp
+index 40ffe27a3e..17c378e16d 100644
+--- a/src/video_core/renderer_vulkan/vk_compute_pipeline.cpp
++++ b/src/video_core/renderer_vulkan/vk_compute_pipeline.cpp
+@@ -334,7 +334,12 @@ ComputePipeline::ComputePipeline(const Device& device_, Scheduler& scheduler, vk
+     }};
+     build_task = std::move(func);
+     if (thread_worker) {
+-        thread_worker->QueueWork([this] { RunBuild(); });
++        build_task_done = false;
++        thread_worker->QueueWork([this] {
++            RunBuild();
++            // The last access to this pipeline from the worker.
++            build_task_done.store(true, std::memory_order::release);
++        });
+     } else {
+         RunBuild();
+     }
+diff --git a/src/video_core/renderer_vulkan/vk_compute_pipeline.h b/src/video_core/renderer_vulkan/vk_compute_pipeline.h
+index d28660665a..2a9caffb2a 100644
+--- a/src/video_core/renderer_vulkan/vk_compute_pipeline.h
++++ b/src/video_core/renderer_vulkan/vk_compute_pipeline.h
+@@ -85,6 +85,11 @@ public:
+     /// Advances the frame window of EDEN_NX2_UPSCALER_TRACE
+     static void TickUpscalerTrace();
+ 
++    /// Whether no build of this pipeline is left queued on a worker thread, which holds it
++    [[nodiscard]] bool IsBuildTaskDone() const noexcept {
++        return build_task_done.load(std::memory_order::acquire);
++    }
++
+ private:
+     /// Builds the pipeline once, on whichever thread gets here first.
+     void RunBuild();
+@@ -113,6 +118,7 @@ private:
+ 
+     std::function<void()> build_task;
+     std::atomic_bool build_claimed{false};
++    std::atomic_bool build_task_done{true};
+     std::condition_variable build_condvar;
+     std::mutex build_mutex;
+     std::atomic_bool is_built{false};
+diff --git a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+index a95bb8a4de..3450d21f49 100644
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -581,6 +581,7 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
+         .min_ssbo_alignment = device.GetStorageBufferAlignment(),
+         .max_per_stage_descriptor_sampled_images = device.GetMaxPerStageDescriptorSampledImages(),
+         .max_per_stage_resources = device.GetMaxPerStageResources(),
++        .max_per_stage_descriptor_storage_buffers = device.GetMaxPerStageDescriptorStorageBuffers(),
+         .max_descriptor_set_samplers = device.GetMaxDescriptorSetSamplers(),
+         .max_descriptor_set_uniform_buffers = device.GetMaxDescriptorSetUniformBuffers(),
+         .max_descriptor_set_uniform_buffers_dynamic = device.GetMaxDescriptorSetUniformBuffersDynamic(),
+@@ -806,6 +807,72 @@ ComputePipeline* ComputePipelineCacheEntry::Get(bool native, GPUVAddr address,
+     return pipeline.get();
+ }
+ 
++constexpr u32 MaxComputeRebuilds = 4;
++
++namespace {
++/// Which pointer slots a native program's arguments fill depends on the area (Ocarina of Time's
++/// foliage culling fills different list slots in Hyrule Field and Castle Town), so a translation
++/// rebuilt in one area may lack pointers the first cached one binds. Try first the translations
++/// that bind every pointer the first one binds, those binding the most first, then the others in
++/// cache order.
++void OrderComputeTranslations(std::vector<FileEnvironment>& candidates) {
++    if (candidates.size() < 2) {
++        return;
++    }
++    std::vector<std::vector<u64>> keys;
++    keys.reserve(candidates.size());
++    for (const FileEnvironment& env : candidates) {
++        keys.push_back(env.MappedStoragePointerKeys());
++    }
++    std::vector<size_t> order(candidates.size());
++    std::iota(order.begin(), order.end(), size_t{0});
++    const auto keeps_first = [&](size_t index) {
++        return std::ranges::includes(keys[index], keys.front());
++    };
++    std::ranges::stable_sort(order, [&](size_t lhs, size_t rhs) {
++        const bool lhs_keeps{keeps_first(lhs)};
++        if (lhs_keeps != keeps_first(rhs)) {
++            return lhs_keeps;
++        }
++        return lhs_keeps && keys[lhs].size() > keys[rhs].size();
++    });
++    std::vector<FileEnvironment> ordered;
++    ordered.reserve(candidates.size());
++    for (const size_t index : order) {
++        ordered.push_back(std::move(candidates[index]));
++    }
++    candidates = std::move(ordered);
++}
++} // Anonymous namespace
++
++bool PipelineCache::StaleNullPointerSlot(const ComputePipelineCacheEntry& entry) const {
++    const auto& qmd{kepler_compute->launch_description};
++    for (const auto& [index, offset] : entry.null_pointer_slots) {
++        if (index >= qmd.const_buffer_config.size() ||
++            ((qmd.const_buffer_enable_mask >> index) & 1) == 0) {
++            continue;
++        }
++        const auto& cbuf{qmd.const_buffer_config[index]};
++        if (offset + sizeof(u64) > cbuf.size) {
++            continue; // The translator reads past the bound size as zero, too
++        }
++        const GPUVAddr slot{cbuf.Address() + offset};
++        if (!gpu_memory->IsFullyMappedRange(slot, sizeof(u64))) {
++            continue;
++        }
++        const GPUVAddr address{gpu_memory->Read<u64>(slot)};
++        if (address != 0 && gpu_memory->IsWithinGPUAddressRange(address) &&
++            gpu_memory->IsFullyMappedRange(address, 1)) {
++            LOG_INFO(Render_Vulkan,
++                     "Rebuilding compute program {:#x}: c{}[{:#x}] was null at translation and "
++                     "now points to {:#x}",
++                     kepler_compute->regs.code_loc.Address() + qmd.program_start, index, offset, address);
++            return true;
++        }
++    }
++    return false;
++}
++
+ ComputePipeline* PipelineCache::CurrentComputePipeline() {
+ 
+     const ShaderInfo* const shader{ComputeShader()};
+@@ -822,6 +889,26 @@ ComputePipeline* PipelineCache::CurrentComputePipeline() {
+     auto& entry{pair->second};
+     if (is_new) {
+         entry = CreateComputePipeline(key, shader);
++    } else if (!entry.null_pointer_slots.empty() && entry.rebuilds < MaxComputeRebuilds &&
++               StaleNullPointerSlot(entry)) {
++        // The translation dropped accesses through a pointer that was null back then. Which slots
++        // the game fills depends on the area, so the new one keeps binding every pointer this one
++        // binds, null now or not: a null pointer binds nothing.
++        auto rebuilt{CreateComputePipeline(key, shader, entry.mapped_pointers)};
++        if (rebuilt.pipeline) {
++            if (entry.pipeline) {
++                retired_compute_pipelines.emplace_back(scheduler.CurrentTick(),
++                                                       std::move(entry.pipeline));
++            }
++            rebuilt.rebuilds = entry.rebuilds + 1;
++            entry = std::move(rebuilt);
++        } else {
++            // Keep the working translation when the new one cannot be built (for example a
++            // narrow access that now stays global across two buffers), and stop retrying.
++            LOG_WARNING(Render_Vulkan, "Keeping compute shader {:016x}: rebuild failed: {}",
++                        key.unique_hash, rebuilt.failure);
++            entry.rebuilds = MaxComputeRebuilds;
++        }
+     }
+     return entry.Get(kepler_compute->IsNativeMode(),
+                      kepler_compute->regs.code_loc.Address() + qmd.program_start, key);
+@@ -883,6 +970,10 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
+         bool has_loaded{};
+         std::unique_ptr<PipelineStatistics> statistics;
+     } state;
++    // A rebuilt translation is cached beside the stale one. Choose between them before building, so
++    // loading only ever adds entries (see OrderComputeTranslations), and take the next when a
++    // translation fails.
++    ::Common::unordered_map<ComputePipelineCacheKey, std::vector<FileEnvironment>> compute_envs;
+ 
+     if (device.IsKhrPipelineExecutablePropertiesEnabled()) {
+         state.statistics = std::make_unique<PipelineStatistics>(device);
+@@ -890,10 +981,21 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
+     const auto load_compute{[&](std::ifstream& file, FileEnvironment env) {
+         ComputePipelineCacheKey key;
+         file.read(reinterpret_cast<char*>(&key), sizeof(key));
+-
+-        workers.QueueWork([this, key, env_ = std::move(env), &state, &callback]() mutable {
++        compute_envs[key].push_back(std::move(env));
++    }};
++    const auto queue_compute{[&](const ComputePipelineCacheKey& key,
++                                 std::vector<FileEnvironment> candidates) {
++        workers.QueueWork([this, key, envs_ = std::move(candidates), &state,
++                           &callback]() mutable {
+             ShaderPools pools;
+-            auto entry{CreateComputePipeline(pools, key, env_, state.statistics.get(), false)};
++            ComputePipelineCacheEntry entry;
++            for (auto& env : envs_) {
++                pools.ReleaseContents();
++                entry = CreateComputePipeline(pools, key, env, state.statistics.get(), false);
++                if (entry.pipeline) {
++                    break;
++                }
++            }
+             std::scoped_lock lock{state.mutex};
+             if (entry.pipeline) {
+                 compute_cache.emplace(key, std::move(entry));
+@@ -1001,6 +1103,11 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
+     }};
+     VideoCommon::LoadPipelines(stop_loading, pipeline_cache_filename, CACHE_VERSION, load_compute,
+                                load_graphics);
++    for (auto& [key, candidates] : compute_envs) {
++        OrderComputeTranslations(candidates);
++        queue_compute(key, std::move(candidates));
++    }
++    compute_envs.clear();
+ 
+     LOG_INFO(Render_Vulkan, "Total Pipeline Count: {}", state.total);
+     if (skipped_pipelines != 0) {
+@@ -1151,6 +1258,11 @@ void PipelineCache::TickFrame() {
+     while (!evicted_pipelines.empty() && scheduler.IsFree(evicted_pipelines.front().first)) {
+         evicted_pipelines.pop_front();
+     }
++    while (!retired_compute_pipelines.empty() &&
++           scheduler.IsFree(retired_compute_pipelines.front().first) &&
++           retired_compute_pipelines.front().second->IsBuildTaskDone()) {
++        retired_compute_pipelines.pop_front();
++    }
+     constexpr u64 EvictCheckFrames = 600;
+     if (frame_count % EvictCheckFrames == 0) {
+         EvictUnusedPipelines();
+@@ -1301,7 +1413,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
+             // VertexB path when VertexA is present.
+             auto& program_va{programs[0]};
+             auto program_vb{TranslateProgram(pools.inst, pools.block, env, cfg, host_info)};
+-            programs[index] = MergeDualVertexPrograms(program_va, program_vb, env);
++            programs[index] = MergeDualVertexPrograms(program_va, program_vb, env, host_info);
+         }
+ 
+         if (device.GetDriverID() != VK_DRIVER_ID_NVIDIA_PROPRIETARY && Shader::Optimization::HasBrokenPattern(programs[index])) {
+@@ -1553,8 +1665,9 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline() {
+     return pipeline;
+ }
+ 
+-ComputePipelineCacheEntry PipelineCache::CreateComputePipeline(
+-    const ComputePipelineCacheKey& key, const ShaderInfo* shader) {
++ComputePipelineCacheEntry PipelineCache::CreateComputePipeline(const ComputePipelineCacheKey& key,
++                                                               const ShaderInfo* shader,
++                                                               std::span<const u64> keep_pointers) {
+     const auto begin = std::chrono::steady_clock::now();
+     SCOPE_EXIT {
+         ReportRuntimePipeline("Compute", begin,
+@@ -1568,6 +1681,7 @@ ComputePipelineCacheEntry PipelineCache::CreateComputePipeline(
+     ComputeEnvironment env{*kepler_compute, *gpu_memory, program_base, qmd.program_start,
+                            shader->lowered_native};
+     env.SetCachedSize(shader->size_bytes);
++    env.KeepStoragePointers(keep_pointers);
+ 
+     main_pools.ReleaseContents();
+     auto entry{CreateComputePipeline(main_pools, key, env, nullptr, true)};
+@@ -1653,7 +1767,11 @@ ComputePipelineCacheEntry PipelineCache::CreateComputePipeline(
+     return {.pipeline = std::make_unique<ComputePipeline>(
+                 device, scheduler, vulkan_pipeline_cache, descriptor_pool, guest_descriptor_queue,
+                 descriptor_buffer_ring, thread_worker, statistics, &shader_notify, program.info,
+-                std::move(spv_module), key.unique_hash)};
++                std::move(spv_module), key.unique_hash),
++            .null_pointer_slots = env.IsNativeProgram() ? env.NullStoragePointerSlots()
++                                                        : std::vector<std::pair<u32, u32>>{},
++            .mapped_pointers =
++                env.IsNativeProgram() ? env.MappedStoragePointerKeys() : std::vector<u64>{}};
+ 
+ } catch (const Shader::Exception& exception) {
+     LOG_ERROR(Render_Vulkan, "Compute pipeline compilation failed shader={:#016x} pipeline={:#016x}: {}",
+diff --git a/src/video_core/renderer_vulkan/vk_pipeline_cache.h b/src/video_core/renderer_vulkan/vk_pipeline_cache.h
+index 08f00f2436..b0aba88aa8 100644
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.h
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.h
+@@ -111,6 +111,11 @@ struct ShaderPools {
+ struct ComputePipelineCacheEntry {
+     std::unique_ptr<ComputePipeline> pipeline;
+     std::string failure;
++    /// Constant buffer slots that were null pointers at translation (see NullStoragePointerSlots)
++    std::vector<std::pair<u32, u32>> null_pointer_slots;
++    /// Constant buffer slots bound as storage buffer pointers (see MappedStoragePointerKeys)
++    std::vector<u64> mapped_pointers;
++    u32 rebuilds{};
+ 
+     [[nodiscard]] ComputePipeline* Get(bool native, GPUVAddr address,
+                                        const ComputePipelineCacheKey& key) const;
+@@ -150,8 +155,13 @@ private:
+         bool build_in_parallel, std::shared_ptr<ShaderPools> emit_pools = nullptr,
+         std::unique_ptr<EmissionBudget::Reservation> reservation = nullptr);
+ 
++    [[nodiscard]] bool StaleNullPointerSlot(const ComputePipelineCacheEntry& entry) const;
++
++    /// Translates the current compute program, binding the pointers in keep_pointers whatever
++    /// their slots hold now (see GenericEnvironment::KeepStoragePointers)
+     ComputePipelineCacheEntry CreateComputePipeline(const ComputePipelineCacheKey& key,
+-                                                     const ShaderInfo* shader);
++                                                    const ShaderInfo* shader,
++                                                    std::span<const u64> keep_pointers = {});
+ 
+     ComputePipelineCacheEntry CreateComputePipeline(ShaderPools& pools,
+                                                      const ComputePipelineCacheKey& key,
+@@ -191,6 +201,9 @@ private:
+     std::unordered_set<u64> used_and_evicted; ///< Key hashes of pipelines used this session, evicted since
+ 
+     ::Common::unordered_map<ComputePipelineCacheKey, ComputePipelineCacheEntry> compute_cache;
++    /// Replaced compute pipelines, destroyed once the GPU and their queued build are done with
++    /// them (tick, pipeline)
++    std::deque<std::pair<u64, std::unique_ptr<ComputePipeline>>> retired_compute_pipelines;
+     ::Common::unordered_map<GraphicsPipelineCacheKey, std::unique_ptr<GraphicsPipeline>> graphics_cache;
+ 
+     ShaderPools main_pools;
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 index 8c9df2d7ae..44c08a5837 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
@@ -2000,6 +2765,115 @@ index 49dd837a42..24e16ecede 100644
      void UploadMemory(VkBuffer buffer, VkDeviceSize offset,
                        std::span<const VideoCommon::BufferImageCopy> copies);
  
+diff --git a/src/video_core/shader_environment.cpp b/src/video_core/shader_environment.cpp
+index 08fad9ddf1..a21a9966e9 100644
+--- a/src/video_core/shader_environment.cpp
++++ b/src/video_core/shader_environment.cpp
+@@ -50,6 +50,38 @@ constexpr size_t INST_SIZE = sizeof(u64);
+ 
+ using Maxwell = Tegra::Engines::Maxwell3D::Regs;
+ 
++// Constant buffer slots that held a null pointer when the program was translated and were
++// therefore not bound as storage buffers. A later non-null value makes the translation stale.
++static std::vector<std::pair<u32, u32>> NullStoragePointerSlots(
++    const ::Common::unordered_map<u64, u32>& cbuf_values,
++    const ::Common::unordered_map<u64, u8>& storage_pointer_types) {
++    std::vector<std::pair<u32, u32>> slots;
++    for (const auto& [key, type] : storage_pointer_types) {
++        if (type != 0 || (key >> 63) != 0) {
++            continue;
++        }
++        const auto low = cbuf_values.find(key);
++        const auto high = cbuf_values.find(key + 4);
++        if (low != cbuf_values.end() && high != cbuf_values.end() && low->second == 0 &&
++            high->second == 0) {
++            slots.emplace_back(static_cast<u32>(key >> 32), static_cast<u32>(key));
++        }
++    }
++    return slots;
++}
++
++static std::vector<u64> MappedStoragePointerKeys(
++    const ::Common::unordered_map<u64, u8>& storage_pointer_types) {
++    std::vector<u64> keys;
++    for (const auto& [key, type] : storage_pointer_types) {
++        if (type != 0) {
++            keys.push_back(key);
++        }
++    }
++    std::ranges::sort(keys);
++    return keys;
++}
++
+ // The shader hash of lowered native code (frame dump "shaders", pipeline cache keys), with a
+ // version tag that isolates this experimental ABI.
+ static u64 NativeShaderHash(std::span<const u64> code) {
+@@ -227,6 +259,20 @@ bool GenericEnvironment::IsCbufIndirectStorageBufferPointer(u32 index, u32 offse
+     return mapped;
+ }
+ 
++std::vector<std::pair<u32, u32>> GenericEnvironment::NullStoragePointerSlots() const {
++    return VideoCommon::NullStoragePointerSlots(cbuf_values, storage_pointer_types);
++}
++
++std::vector<u64> GenericEnvironment::MappedStoragePointerKeys() const {
++    return VideoCommon::MappedStoragePointerKeys(storage_pointer_types);
++}
++
++void GenericEnvironment::KeepStoragePointers(std::span<const u64> keys) {
++    for (const u64 key : keys) {
++        storage_pointer_types.insert_or_assign(key, u8{1});
++    }
++}
++
+ std::optional<u64> GenericEnvironment::Analyze() {
+     if (native_source_size) {
+         // Include the converted header and a version tag to isolate this experimental ABI.
+@@ -1150,6 +1196,14 @@ bool FileEnvironment::IsNativeProgram() const {
+     return Shader::Ampere::HasNativeAddressMap(code);
+ }
+ 
++std::vector<std::pair<u32, u32>> FileEnvironment::NullStoragePointerSlots() const {
++    return VideoCommon::NullStoragePointerSlots(cbuf_values, storage_pointer_types);
++}
++
++std::vector<u64> FileEnvironment::MappedStoragePointerKeys() const {
++    return VideoCommon::MappedStoragePointerKeys(storage_pointer_types);
++}
++
+ bool FileEnvironment::IsCbufStorageBufferPointer(u32 index, u32 offset) {
+     const auto it = storage_pointer_types.find(MakeCbufKey(index, offset));
+     if (it == storage_pointer_types.end()) {
+diff --git a/src/video_core/shader_environment.h b/src/video_core/shader_environment.h
+index cf0a790746..6a557ef3c4 100644
+--- a/src/video_core/shader_environment.h
++++ b/src/video_core/shader_environment.h
+@@ -72,6 +72,14 @@ public:
+     [[nodiscard]] bool IsCbufIndirectStorageBufferPointer(u32 index, u32 offset,
+                                                           u32 indirect) override;
+ 
++    [[nodiscard]] std::vector<std::pair<u32, u32>> NullStoragePointerSlots() const override;
++
++    [[nodiscard]] std::vector<u64> MappedStoragePointerKeys() const override;
++
++    /// Answers the classification of these keys (see MappedStoragePointerKeys) as storage buffer
++    /// pointers, whatever the slots hold now; called before the program is translated
++    void KeepStoragePointers(std::span<const u64> keys);
++
+     [[nodiscard]] std::optional<u64> Analyze();
+ 
+     void SetCachedSize(size_t size_bytes);
+@@ -233,6 +241,10 @@ public:
+     [[nodiscard]] bool IsCbufIndirectStorageBufferPointer(u32 index, u32 offset,
+                                                           u32 indirect) override;
+ 
++    [[nodiscard]] std::vector<std::pair<u32, u32>> NullStoragePointerSlots() const override;
++
++    [[nodiscard]] std::vector<u64> MappedStoragePointerKeys() const override;
++
+     [[nodiscard]] u32 ReadCbufValue(u32 cbuf_index, u32 cbuf_offset) override;
+ 
+     [[nodiscard]] Shader::TextureType ReadTextureType(u32 handle) override;
 diff --git a/src/video_core/texture_cache/texture_cache.h b/src/video_core/texture_cache/texture_cache.h
 index 8fa7c1149e..323db74824 100644
 --- a/src/video_core/texture_cache/texture_cache.h
@@ -2188,10 +3062,18 @@ index 870554531c..0f8072594c 100644
      /// Find or create an image view in the guest descriptor table
      ImageViewId VisitImageView(u32 index, bool compute);
 diff --git a/src/video_core/vulkan_common/vulkan_device.h b/src/video_core/vulkan_common/vulkan_device.h
-index 58d27f7595..4be575e852 100644
+index 58d27f7595..c14cb9b501 100644
 --- a/src/video_core/vulkan_common/vulkan_device.h
 +++ b/src/video_core/vulkan_common/vulkan_device.h
-@@ -425,7 +425,10 @@ public:
+@@ -417,6 +417,7 @@ public:
+ #define FN_MAX_LIMIT_LIST \
+     FN_MAX_LIMIT_ELEM(ComputeSharedMemorySize) \
+     FN_MAX_LIMIT_ELEM(PerStageDescriptorSampledImages) \
++    FN_MAX_LIMIT_ELEM(PerStageDescriptorStorageBuffers) \
+     FN_MAX_LIMIT_ELEM(PerStageResources) \
+     FN_MAX_LIMIT_ELEM(DescriptorSetSamplers) \
+     FN_MAX_LIMIT_ELEM(DescriptorSetUniformBuffers) \
+@@ -425,7 +426,10 @@ public:
      FN_MAX_LIMIT_ELEM(DescriptorSetStorageBuffersDynamic) \
      FN_MAX_LIMIT_ELEM(DescriptorSetSampledImages) \
      FN_MAX_LIMIT_ELEM(DescriptorSetStorageImages) \
@@ -2313,10 +3195,10 @@ index 8b9e72b3e3..8ab12bcbf2 100644
          /// Memory type of device-local buffers by usage and flags (CreateBufferInSeparatePool).
          mutable std::unordered_map<u64, u32> buffer_memory_types;
 diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
-index ea6b9e23c5..bc7a593038 100644
+index 204aee60a3..d6e1e2f20c 100644
 --- a/src/yuzu/main_window.cpp
 +++ b/src/yuzu/main_window.cpp
-@@ -2031,6 +2031,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
+@@ -2091,6 +2091,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
          Settings::UpdateGPUAccuracy();
          LOG_INFO(Config, "Applied recommended MKW settings after per-game configuration");
      }
