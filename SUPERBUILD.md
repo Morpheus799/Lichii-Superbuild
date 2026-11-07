@@ -72,6 +72,13 @@ that profile cannot be read by our compiler, and ThinLTO was tested and reverted
 because MSYS2 ships no `llvm-ar` to index bitcode archives. Windows packages use
 bundled static FFmpeg to avoid the MSYS2 `libva.dll` false positive.
 
+Windows builds also enable NVIDIA DLSS/Streamline. Upstream gates
+`ENABLE_NVIDIA_DLSS` on `MSVC AND ARCHITECTURE_x86_64`; we relax it to
+`WIN32 AND ARCHITECTURE_x86_64` so MinGW Clang builds show the **Use NVIDIA
+DLSS** checkbox and compile the #606 / PR #635 code. The Streamline MIT headers
+come from CPM; `sl.interposer.dll` and the DLSS plugins are loaded at run time
+from the user's PC. Linux is unchanged (Streamline is Windows-only).
+
 The updater points at this repository's releases (`callme-sy/Lichii-Superbuild`,
 `vN` tags, `Lichii-vN-<platform>` assets). It is enabled in release builds only when
 `LICHII_BUILD_TAG` and `LICHII_BUILD_PLATFORM` are set at configure time.
