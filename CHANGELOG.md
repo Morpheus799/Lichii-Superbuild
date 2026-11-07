@@ -12,7 +12,14 @@ checksums.
   `ocarina_dlss_bias.comp` / `ocarina_dlss_effects.comp` shaders and Streamline
   DLSS hooks; indirect dispatch binds are no longer deferred while effects are
   marked.
+- NVIDIA DLSS enabled on MinGW Windows. Upstream gates `ENABLE_NVIDIA_DLSS` on
+  `MSVC AND ARCHITECTURE_x86_64`, so the checkbox was hidden and the #606/#635
+  DLSS code was compiled out of our builds. Relaxed to
+  `WIN32 AND ARCHITECTURE_x86_64` and built against the bundled Streamline
+  headers. Needs NVIDIA Streamline loader and DLSS plugins on the user's PC;
+  Linux builds are unchanged.
 - Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
+
 ## v15
 
 - Base: `nx2` `b7ff181f` — adds #606 NVIDIA DLSS Super Resolution for OoT

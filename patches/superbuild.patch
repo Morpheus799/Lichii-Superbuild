@@ -26,10 +26,10 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..0b4e3414be 100644
+index bc40878ce6..ab26ab2803 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,172 @@
+@@ -1,11 +1,179 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -49,10 +49,17 @@ index bc40878ce6..0b4e3414be 100644
 +  `ocarina_dlss_bias.comp` / `ocarina_dlss_effects.comp` shaders and Streamline
 +  DLSS hooks; indirect dispatch binds are no longer deferred while effects are
 +  marked.
++- NVIDIA DLSS enabled on MinGW Windows. Upstream gates `ENABLE_NVIDIA_DLSS` on
++  `MSVC AND ARCHITECTURE_x86_64`, so the checkbox was hidden and the #606/#635
++  DLSS code was compiled out of our builds. Relaxed to
++  `WIN32 AND ARCHITECTURE_x86_64` and built against the bundled Streamline
++  headers. Needs NVIDIA Streamline loader and DLSS plugins on the user's PC;
++  Linux builds are unchanged.
 +- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
-+## v15
  
 -- Initial release candidate
++## v15
++
 +- Base: `nx2` `b7ff181f` — adds #606 NVIDIA DLSS Super Resolution for OoT
 +  and #569 task/mesh pipelines through compute without `VK_EXT_mesh_shader`.
 +- PGO audited: object files differ between normal and PGO, and Clang reads
