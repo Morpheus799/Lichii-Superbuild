@@ -26,7 +26,7 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..ff8ebc2592 100644
+index bc40878ce6..5e1c0cd7f6 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
 @@ -1,11 +1,85 @@
@@ -39,7 +39,7 @@ index bc40878ce6..ff8ebc2592 100644
 +checksums.
  
 -## [Unreleased]
-+## 261106-v10
++## v10
  
 -## [0.1.0]
 +- Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
