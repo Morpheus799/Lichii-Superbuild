@@ -26,10 +26,10 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..81fc5b6899 100644
+index bc40878ce6..ff8ebc2592 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,74 @@
+@@ -1,11 +1,85 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -39,9 +39,21 @@ index bc40878ce6..81fc5b6899 100644
 +checksums.
  
 -## [Unreleased]
-+## 261106-v9
++## 261106-v10
  
 -## [0.1.0]
++- Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
++  usage tracking, #429 32-bit global atomics, #433 dynamic per-tap offsets,
++  #438 macro hand-back, #439 Turing macro RAM, #444 gathered-buffer lifetime,
++  #435 address-wrap rejection, #443/#442 game-list fixes and #418 core pinning.
++- Keeps the v9 candidate fixes that remain unmerged.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
+ 
+-- Initial release candidate
++## 261106-v9
++
 +- Base: `nx2` `9fa4a71` (unchanged from v8).
 +- Adds reviewed `capy/*` fixes: NaN-defined shader min/max/clamp, QMD release
 +  formats, framebuffer and stream-buffer limits, texture-cache OOM retries,
@@ -49,8 +61,7 @@ index bc40878ce6..81fc5b6899 100644
 +- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
 +  superbuild fix set.
 +- Windows and Linux, standard and PGO.
- 
--- Initial release candidate
++
 +## 261106-v8
 +
 +- Base: `nx2` `9fa4a71` — upstream #149 (OoT split deadlock/FSR3/RED-SURED),
