@@ -25,13 +25,14 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `4c173bb792eca0c89fb9e93e3c81122dc68f1d3e` (2026-11-06)
-- Upstream `nx2` already contains #303 (opt-in desktop compatibility reports),
-  #287 (Linux AppImage switch discovery and package defaults), #314 (new-user
-  performance defaults), #224 (async native discard), #273 (AMD shader
-  typing/depth sampling), #284 (AV1 in MinGW builds), #290 (worker lost-wake
-  fix) and #295 (misaligned SSBO accesses and compute write ordering); those
-  are not re-applied here.
+- Base commit: `9fa4a71fa051aa857e2d8f370aa31739a4f062c2` (2026-11-07)
+- Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
+  #295, plus #149 (OoT split deadlock/FSR3/RED-SURED), #185 (deferred clears),
+  #197 (compute rejection path), #203 (LayeredFS NUP), #215 (query waits),
+  #232 (hybrid CPU cores), #241 (aligned uniform retry), #397 (CPU-write
+  download guard), #398 (TLD4 second descriptor), #410 (paired cbuf pointer),
+  #412 (GPU back bookkeeping), #413 (lock-free flush check) and #414 (quad
+  index growth). Those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
@@ -142,6 +143,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout 4c173bb7
+git checkout 9fa4a71f
 git apply patches/superbuild.patch
 ```
