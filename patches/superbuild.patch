@@ -520,50 +520,6 @@ index c680a2cd2c..3fad0deb0f 100644
              if (input.end) {
                  decoder->Drain(pictures);
              }
-diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
-index 6c09843b15..94b6c2d821 100644
---- a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
-+++ b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
-@@ -17,12 +17,10 @@ Id Decorate(EmitContext& ctx, IR::Inst* inst, Id op) {
-     return op;
- }
- 
-+// Maxwell's FMNMX and .SAT return the non-NaN operand (NaN saturates to 0). FMin/FMax/FClamp leave
-+// NaN undefined and AMD's Windows compiler passes it through, so use the NaN-defined N variants.
- Id Clamp(EmitContext& ctx, Id type, Id value, Id zero, Id one) {
--    if (ctx.profile.has_broken_spirv_clamp) {
--        return ctx.OpFMin(type, ctx.OpFMax(type, value, zero), one);
--    } else {
--        return ctx.OpFClamp(type, value, zero, one);
--    }
-+    return ctx.OpNMin(type, ctx.OpNMax(type, value, zero), one);
- }
- 
- Id FPOrdNotEqual(EmitContext& ctx, Id lhs, Id rhs) {
-@@ -85,19 +83,19 @@ Id EmitFPFma64(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c) {
- }
- 
- Id EmitFPMax32(EmitContext& ctx, Id a, Id b) {
--    return ctx.OpFMax(ctx.F32[1], a, b);
-+    return ctx.OpNMax(ctx.F32[1], a, b);
- }
- 
- Id EmitFPMax64(EmitContext& ctx, Id a, Id b) {
--    return ctx.OpFMax(ctx.F64[1], a, b);
-+    return ctx.OpNMax(ctx.F64[1], a, b);
- }
- 
- Id EmitFPMin32(EmitContext& ctx, Id a, Id b) {
--    return ctx.OpFMin(ctx.F32[1], a, b);
-+    return ctx.OpNMin(ctx.F32[1], a, b);
- }
- 
- Id EmitFPMin64(EmitContext& ctx, Id a, Id b) {
--    return ctx.OpFMin(ctx.F64[1], a, b);
-+    return ctx.OpNMin(ctx.F64[1], a, b);
- }
- 
- Id EmitFPMul16(EmitContext& ctx, IR::Inst* inst, Id a, Id b) {
 diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
 index c8f3ae570d..1896614526 100644
 --- a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
@@ -671,28 +627,11 @@ index c8f3ae570d..1896614526 100644
          std::array<Id, 2> packed;
          for (u32 row = 0; row < 2; ++row)
              packed[row] = ctx.OpPackHalf2x16(u32ty, ctx.OpCompositeConstruct(ctx.F32[2],
-diff --git a/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp b/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp
-index ebb3e4a7ca..d2f1a79928 100644
---- a/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp
-+++ b/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp
-@@ -364,10 +364,10 @@ Id CasFunction(EmitContext& ctx, Operation operation, Id value_type) {
-         result = ctx.OpFAdd(value_type, op_a, op_b);
-         break;
-     case Operation::FPMin:
--        result = ctx.OpFMin(value_type, op_a, op_b);
-+        result = ctx.OpNMin(value_type, op_a, op_b);
-         break;
-     case Operation::FPMax:
--        result = ctx.OpFMax(value_type, op_a, op_b);
-+        result = ctx.OpNMax(value_type, op_a, op_b);
-         break;
-     default:
-         break;
 diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
-index 099111730e..3ab94b6d03 100644
+index 195b9b6c42..1b81321d1c 100644
 --- a/src/tests/CMakeLists.txt
 +++ b/src/tests/CMakeLists.txt
-@@ -51,6 +51,7 @@ add_executable(tests
+@@ -54,6 +54,7 @@ add_executable(tests
      video_core/maxwell_permute_lod.cpp
      video_core/submission_policy.cpp
      video_core/framebuffer_clear_layers.cpp
@@ -700,7 +639,7 @@ index 099111730e..3ab94b6d03 100644
      video_core/fire_emblem_upscale.cpp
      video_core/dlss_contract.cpp
      video_core/ampere_fast_fusion.cpp
-@@ -68,6 +69,7 @@ add_executable(tests
+@@ -71,6 +72,7 @@ add_executable(tests
      video_core/gpu_written_pages.cpp
      video_core/command_writer.cpp
      video_core/split_fence_wait.cpp
@@ -708,22 +647,6 @@ index 099111730e..3ab94b6d03 100644
      video_core/command_snapshot_suspensions.cpp
      video_core/pending_maps.cpp
      video_core/maxwell_fast_method.cpp
-@@ -91,6 +93,7 @@ add_executable(tests
-     video_core/pipeline_cache_files.cpp
-     video_core/storage_binding_capacity.cpp
-     video_core/native_indirect_reset.cpp
-+    video_core/native_qmd.cpp
-     video_core/gpu_command_safety.cpp
-     video_core/syncpoint_actions.cpp
-     video_core/nx2_video_render.cpp
-@@ -98,6 +101,7 @@ add_executable(tests
-     video_core/spirv_software_matrix.cpp
-     video_core/spirv_builtin_capabilities.cpp
-     video_core/spirv_min_max_denorms.cpp
-+    video_core/spirv_nan_safe_min_max.cpp
-     common/bit_field.cpp
-     common/cityhash.cpp
-     common/container_hash.cpp
 diff --git a/src/tests/common/game_presets.cpp b/src/tests/common/game_presets.cpp
 index 481f5c5e1d..48dd887b97 100644
 --- a/src/tests/common/game_presets.cpp
@@ -798,163 +721,6 @@ index 0000000000..e92c9fddb7
 +    REQUIRE(size.width == 1);
 +    REQUIRE(size.height == 1);
 +    REQUIRE(size.layers == 1);
-+}
-diff --git a/src/tests/video_core/native_qmd.cpp b/src/tests/video_core/native_qmd.cpp
-new file mode 100644
-index 0000000000..560ae4b13f
---- /dev/null
-+++ b/src/tests/video_core/native_qmd.cpp
-@@ -0,0 +1,151 @@
-+// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
-+// SPDX-License-Identifier: GPL-3.0-or-later
-+
-+#include <array>
-+#include <cstdint>
-+#include <map>
-+#include <string_view>
-+#include <vector>
-+
-+#include <catch2/catch_test_macros.hpp>
-+
-+#include "video_core/native_qmd.h"
-+
-+using Tegra::NativeQmdScheduler;
-+using Address = NativeQmdScheduler::Address;
-+using Descriptor = NativeQmdScheduler::Descriptor;
-+using Word = NativeQmdScheduler::Word;
-+
-+namespace {
-+
-+constexpr Word Enable = 1U << 23;
-+constexpr Word OneWord = 1U << 30;
-+constexpr Word Reduction = 1U << 26;
-+
-+struct Released {
-+    Address address;
-+    Word payload;
-+    Word flags;
-+    bool operator==(const Released&) const = default;
-+};
-+
-+struct Launch {
-+    std::string_view error;
-+    std::vector<Released> released;
-+};
-+
-+Descriptor MakeQmd() {
-+    Descriptor qmd{};
-+    qmd[18] = 0x30;
-+    return qmd;
-+}
-+
-+void SetRelease(Descriptor& qmd, Word base, Word address, Word flags, Word payload) {
-+    qmd[base] = address;
-+    qmd[base + 1] = flags;
-+    qmd[base + 2] = payload;
-+}
-+
-+Launch Schedule(NativeQmdScheduler& scheduler, Address address, const std::map<Address, Descriptor>& memory) {
-+    Launch launch;
-+    launch.error = scheduler.Signal(
-+        address, 3,
-+        [&](Address qmd_address, Descriptor& descriptor) {
-+            const auto it = memory.find(qmd_address);
-+            if (it == memory.end()) return false;
-+            descriptor = it->second;
-+            return true;
-+        },
-+        [&](Address destination, Word payload, Word flags) {
-+            launch.released.push_back({destination, payload, flags});
-+            return true;
-+        });
-+    return launch;
-+}
-+
-+} // Anonymous namespace
-+
-+TEST_CASE("An undecodable QMD release slot keeps the other releases and the dependent QMD",
-+          "[video_core][native_qmd]") {
-+    // Orbitals (#400): both channels wait on 0x1b18871010, released by slot 0 of this QMD.
-+    constexpr Address first = 0x1b19635400;
-+    constexpr Address second = 0x1b19635500;
-+    auto qmd = MakeQmd();
-+    SetRelease(qmd, 24, 0x18871010, 0x4088001b, 6);
-+    SetRelease(qmd, 52, 0x18871020, Enable | OneWord | (1U << 29) | 0x1b, 7);
-+    qmd[15] = Word(second >> 8);
-+    qmd[16] = 1 | (1U << 1);
-+    auto dependent = MakeQmd();
-+    SetRelease(dependent, 24, 0x18871030, Enable | OneWord | 0x1b, 8);
-+
-+    NativeQmdScheduler scheduler;
-+    const auto launch = Schedule(scheduler, first, {{first, qmd}, {second, dependent}});
-+    REQUIRE(launch.error == "unsupported QMD release format");
-+    REQUIRE(launch.released == std::vector<Released>{
-+                                   {0x1b18871010, 6, 0x4088001b},
-+                                   {0x1b18871030, 8, Enable | OneWord | 0x1b},
-+                               });
-+}
-+
-+TEST_CASE("Timestamped, reduction, signed and interrupting QMD releases are performed",
-+          "[video_core][native_qmd]") {
-+    constexpr Address address = 0x20000;
-+    constexpr Word four_words = Enable;
-+    constexpr Word increment = Enable | OneWord | Reduction | (3U << 20);
-+    constexpr Word signed_max_trap = Enable | OneWord | Reduction | (1U << 24) | (2U << 20) | (1U << 27);
-+    auto qmd = MakeQmd();
-+    SetRelease(qmd, 24, 0x1000, four_words, 1);
-+    SetRelease(qmd, 28, 0x1010, increment, 2);
-+    SetRelease(qmd, 52, 0x1020, signed_max_trap, 3);
-+
-+    NativeQmdScheduler scheduler;
-+    const auto launch = Schedule(scheduler, address, {{address, qmd}});
-+    REQUIRE(launch.error.empty());
-+    REQUIRE(launch.released == std::vector<Released>{
-+                                   {0x1000, 1, four_words},
-+                                   {0x1010, 2, increment},
-+                                   {0x1020, 3, signed_max_trap},
-+                               });
-+}
-+
-+TEST_CASE("Skipped QMD release slots are reported with their raw words", "[video_core][native_qmd]") {
-+    constexpr Address address = 0x30000;
-+    constexpr Word two_words = Enable | (2U << 30);
-+    constexpr Word reserved_size = Enable | (3U << 30);
-+    constexpr Word timestamped_reduction = Enable | Reduction;
-+    auto qmd = MakeQmd();
-+    SetRelease(qmd, 24, 0x2000, two_words, 1);
-+    SetRelease(qmd, 28, 0x2010, reserved_size, 2);
-+    SetRelease(qmd, 52, 0x2020, timestamped_reduction, 3);
-+
-+    NativeQmdScheduler scheduler;
-+    std::vector<std::array<Word, 6>> skipped;
-+    scheduler.skipped_release = [&](Address qmd_address, std::size_t slot, std::span<const Word, 4> words) {
-+        skipped.push_back({Word(qmd_address), Word(slot), words[0], words[1], words[2], words[3]});
-+    };
-+    const auto launch = Schedule(scheduler, address, {{address, qmd}});
-+    REQUIRE(launch.error == "unsupported QMD release format");
-+    REQUIRE(launch.released.empty());
-+    REQUIRE(skipped == std::vector<std::array<Word, 6>>{
-+                           {Word(address), 0, 0x2000, two_words, 1, 0},
-+                           {Word(address), 1, 0x2010, reserved_size, 2, 0},
-+                           {Word(address), 2, 0x2020, timestamped_reduction, 3, 0},
-+                       });
-+}
-+
-+TEST_CASE("Semaphore reductions follow the documented ops", "[video_core][native_qmd]") {
-+    using Tegra::ReduceSemaphore;
-+    REQUIRE(ReduceSemaphore(0, false, 5, 3) == 8);
-+    REQUIRE(ReduceSemaphore(1, false, 0xffffffff, 1) == 1);
-+    REQUIRE(ReduceSemaphore(1, true, 0xffffffff, 1) == 0xffffffff);
-+    REQUIRE(ReduceSemaphore(2, false, 0xffffffff, 1) == 0xffffffff);
-+    REQUIRE(ReduceSemaphore(2, true, 0xffffffff, 1) == 1);
-+    REQUIRE(ReduceSemaphore(3, false, 4, 5) == 5);
-+    REQUIRE(ReduceSemaphore(3, false, 5, 5) == 0);
-+    REQUIRE(ReduceSemaphore(4, false, 3, 5) == 2);
-+    REQUIRE(ReduceSemaphore(4, false, 0, 5) == 5);
-+    REQUIRE(ReduceSemaphore(4, false, 7, 5) == 5);
-+    REQUIRE(ReduceSemaphore(5, false, 0b1100, 0b1010) == 0b1000);
-+    REQUIRE(ReduceSemaphore(6, false, 0b1100, 0b1010) == 0b1110);
-+    REQUIRE(ReduceSemaphore(7, false, 0b1100, 0b1010) == 0b0110);
 +}
 diff --git a/src/tests/video_core/nx2_written_pages.cpp b/src/tests/video_core/nx2_written_pages.cpp
 new file mode 100644
@@ -1066,156 +832,6 @@ index 0000000000..45c283667c
 +        writers.clear();
 +        pages.Check();
 +    }
-+}
-diff --git a/src/tests/video_core/spirv_nan_safe_min_max.cpp b/src/tests/video_core/spirv_nan_safe_min_max.cpp
-new file mode 100644
-index 0000000000..bff259642a
---- /dev/null
-+++ b/src/tests/video_core/spirv_nan_safe_min_max.cpp
-@@ -0,0 +1,144 @@
-+// SPDX-License-Identifier: GPL-3.0-or-later
-+
-+#include <cstring>
-+#include <string_view>
-+#include <tuple>
-+#include <vector>
-+
-+#include <catch2/catch_test_macros.hpp>
-+
-+#include "shader_recompiler/backend/spirv/emit_spirv.h"
-+#include "shader_recompiler/frontend/ir/ir_emitter.h"
-+#include "shader_recompiler/frontend/ir/program.h"
-+#include "shader_recompiler/object_pool.h"
-+
-+namespace {
-+namespace IR = Shader::IR;
-+
-+constexpr u32 OpExtInstImport = 11;
-+constexpr u32 OpExtInst = 12;
-+constexpr u32 GLSLstd450FMin = 37;
-+constexpr u32 GLSLstd450FMax = 40;
-+constexpr u32 GLSLstd450FClamp = 43;
-+constexpr u32 GLSLstd450NMin = 79;
-+constexpr u32 GLSLstd450NMax = 80;
-+constexpr u32 GLSLstd450NClamp = 81;
-+
-+struct GlslOpCounts {
-+    size_t fmin{};
-+    size_t fmax{};
-+    size_t fclamp{};
-+    size_t nmin{};
-+    size_t nmax{};
-+    size_t nclamp{};
-+};
-+
-+GlslOpCounts CountGlslOps(const std::vector<u32>& code) {
-+    constexpr std::string_view glsl{"GLSL.std.450"};
-+    u32 glsl_set{};
-+    GlslOpCounts counts;
-+    for (size_t offset = 5; offset < code.size();) {
-+        const u32 word_count = code[offset] >> 16;
-+        REQUIRE(word_count > 0);
-+        REQUIRE(offset + word_count <= code.size());
-+        const u32 opcode = code[offset] & 0xffff;
-+        if (opcode == OpExtInstImport && word_count >= 3) {
-+            const auto* name = reinterpret_cast<const char*>(&code[offset + 2]);
-+            if (std::strncmp(name, glsl.data(), glsl.size()) == 0) {
-+                glsl_set = code[offset + 1];
-+            }
-+        } else if (opcode == OpExtInst && word_count >= 5 && code[offset + 3] == glsl_set) {
-+            switch (code[offset + 4]) {
-+            case GLSLstd450FMin:
-+                ++counts.fmin;
-+                break;
-+            case GLSLstd450FMax:
-+                ++counts.fmax;
-+                break;
-+            case GLSLstd450FClamp:
-+                ++counts.fclamp;
-+                break;
-+            case GLSLstd450NMin:
-+                ++counts.nmin;
-+                break;
-+            case GLSLstd450NMax:
-+                ++counts.nmax;
-+                break;
-+            case GLSLstd450NClamp:
-+                ++counts.nclamp;
-+                break;
-+            default:
-+                break;
-+            }
-+        }
-+        offset += word_count;
-+    }
-+    return counts;
-+}
-+
-+struct Fixture {
-+    Shader::ObjectPool<IR::Inst> pool;
-+    IR::Block block{pool};
-+    IR::Program program;
-+    Shader::Profile profile{};
-+
-+    Fixture() {
-+        program.stage = Shader::Stage::Compute;
-+        program.workgroup_size = {1, 1, 1};
-+        program.blocks = {&block};
-+        program.post_order_blocks = {&block};
-+        program.syntax_list = {{{.block = &block}, IR::AbstractSyntaxNode::Type::Block},
-+                               {{}, IR::AbstractSyntaxNode::Type::Return}};
-+        profile.supported_spirv = 0x00010300;
-+    }
-+
-+    std::vector<u32> Emit() {
-+        return Shader::Backend::SPIRV::EmitSPIRV(profile, program);
-+    }
-+};
-+
-+void CheckNaNDefined(const GlslOpCounts& counts, size_t nmin, size_t nmax) {
-+    CHECK(counts.fmin == 0);
-+    CHECK(counts.fmax == 0);
-+    CHECK(counts.fclamp == 0);
-+    CHECK(counts.nclamp == 0);
-+    CHECK(counts.nmin == nmin);
-+    CHECK(counts.nmax == nmax);
-+}
-+} // Anonymous namespace
-+
-+TEST_CASE("SPIR-V float min, max and clamp emit NaN-defined instructions",
-+          "[video_core][spirv][nan_safe_min_max]") {
-+    for (const bool broken_clamp : {false, true}) {
-+        CAPTURE(broken_clamp);
-+        Fixture fixture;
-+        fixture.profile.has_broken_spirv_clamp = broken_clamp;
-+        fixture.program.info.uses_fp64 = true;
-+        fixture.program.info.uses_local_invocation_id = true;
-+        IR::IREmitter ir{fixture.block};
-+        const IR::F32 a{ir.BitCast<IR::F32>(ir.LocalInvocationIdX())};
-+        const IR::F32 b{ir.BitCast<IR::F32>(ir.LocalInvocationIdY())};
-+        const IR::F32 c{ir.BitCast<IR::F32>(ir.LocalInvocationIdZ())};
-+        const IR::F64 d{ir.PackDouble2x32(
-+            ir.CompositeConstruct(ir.LocalInvocationIdX(), ir.LocalInvocationIdY()))};
-+        const IR::F64 e{ir.PackDouble2x32(
-+            ir.CompositeConstruct(ir.LocalInvocationIdY(), ir.LocalInvocationIdZ()))};
-+        std::ignore = ir.FPMin(a, b);
-+        std::ignore = ir.FPMax(a, b);
-+        std::ignore = ir.FPMin(d, e);
-+        std::ignore = ir.FPMax(d, e);
-+        std::ignore = ir.FPSaturate(a);
-+        std::ignore = ir.FPClamp(a, b, c);
-+        // Min32 and min64, plus the min half of one saturate and one clamp; likewise for max.
-+        CheckNaNDefined(CountGlslOps(fixture.Emit()), 4, 4);
-+    }
-+}
-+
-+TEST_CASE("SPIR-V float atomic min and max loops emit NaN-defined instructions",
-+          "[video_core][spirv][nan_safe_min_max]") {
-+    Fixture fixture;
-+    fixture.program.info.storage_buffers_descriptors = {{0, 0, 1, true}};
-+    fixture.program.info.uses_atomic_f32x2_min = true;
-+    fixture.program.info.uses_atomic_f32x2_max = true;
-+    CheckNaNDefined(CountGlslOps(fixture.Emit()), 1, 1);
 +}
 diff --git a/src/tests/video_core/spirv_software_matrix.cpp b/src/tests/video_core/spirv_software_matrix.cpp
 index 918fcf1c0e..e9040af774 100644
@@ -1427,7 +1043,7 @@ index ddc85e087a..c61485bc1d 100644
      renderer_vulkan/maxwell_to_vk.h
      renderer_vulkan/pipeline_build.h
 diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
-index 7327240629..4753d1f5ce 100644
+index ca414b2393..11202d0e2c 100644
 --- a/src/video_core/buffer_cache/buffer_cache.h
 +++ b/src/video_core/buffer_cache/buffer_cache.h
 @@ -21,6 +21,7 @@
@@ -1462,75 +1078,6 @@ index 7327240629..4753d1f5ce 100644
      if (has_host_buffer && (*channel_state->uniform_buffer_sizes)[stage][index] == 0x10000 &&
          size != 0 && gpu_memory != nullptr && gpu_memory->UsesNativeTiling() &&
          (Nx2Perf::Verify() || !native_indirect_uniforms_this_frame.contains(device_addr)) &&
-diff --git a/src/video_core/engines/kepler_compute.cpp b/src/video_core/engines/kepler_compute.cpp
-index af26c2a8ac..ff708ca21c 100644
---- a/src/video_core/engines/kepler_compute.cpp
-+++ b/src/video_core/engines/kepler_compute.cpp
-@@ -50,6 +50,12 @@ KeplerCompute::KeplerCompute(MemoryManager& memory_manager_)
-                      fmt::ptr(this), memory_manager.GetID());
-         };
-     }
-+    native_qmd.skipped_release = [](u64 address, std::size_t slot, std::span<const u32, 4> words) {
-+        static std::unordered_set<u32> logged;
-+        if (!logged.insert(words[1]).second) return;
-+        LOG_WARNING(HW_GPU, "Native QMD {:#x} skipped release slot {} with unsupported format, words={:08x}",
-+                    address, slot, fmt::join(words, ","));
-+    };
-     execution_mask.reset();
-     execution_mask[KEPLER_COMPUTE_REG_INDEX(exec_upload)] = true;
-     execution_mask[KEPLER_COMPUTE_REG_INDEX(data_upload)] = true;
-@@ -107,16 +113,8 @@ void KeplerCompute::ProcessNativeReportSemaphore(u32 argument) {
-     if ((argument >> 3) & 1) {
-         const u32 reduction = (argument >> 9) & 7;
-         rasterizer->SignalFence([this, address, payload, reduction] {
--            const u32 old_value = memory_manager.Read<u32>(address);
--            const u32 value = reduction == 0   ? old_value + payload
--                              : reduction == 1 ? (std::min)(old_value, payload)
--                              : reduction == 2 ? (std::max)(old_value, payload)
--                              : reduction == 3 ? (old_value >= payload ? 0 : old_value + 1)
--                              : reduction == 4 ? (old_value == 0 || old_value > payload ? payload : old_value - 1)
--                              : reduction == 5 ? (old_value & payload)
--                              : reduction == 6 ? (old_value | payload)
--                                               : (old_value ^ payload);
--            memory_manager.Write<u32>(address, value);
-+            memory_manager.Write<u32>(address, ReduceSemaphore(reduction, false,
-+                                                               memory_manager.Read<u32>(address), payload));
-         });
-         return;
-     }
-@@ -366,10 +364,12 @@ bool KeplerCompute::ProcessNativeMethod(Core::System& system, u32 method, u32 ar
-                 return true;
-             },
-             [&](u64 address, u32 payload, u32 flags) {
--                if (!memory_manager.IsFullyMappedRange(address, sizeof(payload))) return false;
-+                const bool four_words = (flags >> 30) == 0;
-+                if (!memory_manager.IsFullyMappedRange(address, four_words ? 16 : sizeof(payload))) return false;
-                 if (flags & (1U << 26)) {
--                    rasterizer->SignalFence([this, address, payload] {
--                        const u32 value = memory_manager.Read<u32>(address) + payload;
-+                    rasterizer->SignalFence([this, address, payload, flags] {
-+                        const u32 value = ReduceSemaphore((flags >> 20) & 7, (flags >> 24) & 1,
-+                                                          memory_manager.Read<u32>(address), payload);
-                         memory_manager.Write<u32>(address, value);
-                         if (const auto device = memory_manager.GpuToCpuAddress(address)) {
-                             Tegra::Nx2SemaphoreWaiters::Get().OnWrite(*device, value);
-@@ -379,11 +379,15 @@ bool KeplerCompute::ProcessNativeMethod(Core::System& system, u32 method, u32 ar
-                             return text ? u64{std::strtoull(text, nullptr, 16)} : u64{};
-                         }();
-                         if (watch != 0 && (address & ~u64{0xf}) == watch) {
--                            LOG_INFO(HW_GPU, "Semaphore watch: QMD release add {:#x} -> {:#x}", address, value);
-+                            LOG_INFO(HW_GPU, "Semaphore watch: QMD release reduction {:#x} -> {:#x}", address, value);
-                         }
-                         VideoCommon::TraceNativeQuery(1, memory_manager.GetID(), address,
-                             memory_manager.GpuToCpuAddress(address).value_or(0), 0, value, 1U << 26);
-                     });
-+                } else if (four_words) {
-+                    rasterizer->Query(address, VideoCommon::QueryType::Payload,
-+                        VideoCommon::QueryPropertiesFlags::IsAFence | VideoCommon::QueryPropertiesFlags::HasTimeout,
-+                        payload, 0);
-                 } else if (flags & (1U << 19)) {
-                     // NVN2 tracks QMD completion with a max release (bit 19) into a word other
-                     // releases also advance: a plain write would move it backwards and leave
 diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
 index f32fab777d..f537cb72cd 100644
 --- a/src/video_core/gpu.cpp
@@ -1698,109 +1245,6 @@ index f213417953..45b96bdc42 100644
  
      if (block) {
          state.cv.wait(lk, thread.get_stop_token(), [this, fence] {
-diff --git a/src/video_core/native_qmd.h b/src/video_core/native_qmd.h
-index 924267e406..f32afb363b 100644
---- a/src/video_core/native_qmd.h
-+++ b/src/video_core/native_qmd.h
-@@ -1,15 +1,35 @@
- // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
- // SPDX-License-Identifier: GPL-3.0-or-later
- #pragma once
-+#include <algorithm>
- #include <array>
- #include <cstdint>
- #include <functional>
-+#include <span>
- #include <string_view>
- #include <type_traits>
- #include <unordered_map>
- 
- namespace Tegra {
- 
-+// Semaphore reduction ops (ADD, MIN, MAX, INC, DEC, AND, OR, XOR) shared by QMD releases and the
-+// compute report semaphore.
-+inline std::uint32_t ReduceSemaphore(std::uint32_t op, bool is_signed, std::uint32_t value,
-+                                     std::uint32_t payload) {
-+    switch (op) {
-+    case 0: return value + payload;
-+    case 1: return is_signed ? std::uint32_t((std::min)(std::int32_t(value), std::int32_t(payload)))
-+                             : (std::min)(value, payload);
-+    case 2: return is_signed ? std::uint32_t((std::max)(std::int32_t(value), std::int32_t(payload)))
-+                             : (std::max)(value, payload);
-+    case 3: return value >= payload ? 0 : value + 1;
-+    case 4: return value == 0 || value > payload ? payload : value - 1;
-+    case 5: return value & payload;
-+    case 6: return value | payload;
-+    default: return value ^ payload;
-+    }
-+}
-+
- // Native QMD 3.0 dependency scheduling; nonempty grids require a dispatch backend.
- class NativeQmdScheduler {
- public:
-@@ -19,6 +39,17 @@ public:
-     struct RejectShaderDispatch { bool operator()(const Descriptor&) const { return false; } };
-     // Optional diagnostics: called with "load"/"count"/"defer"/"run" events.
-     std::function<void(std::string_view, Address, std::int32_t)> trace;
-+    // Optional diagnostics: called with the QMD, slot and raw words of a release it skips.
-+    std::function<void(Address, std::size_t, std::span<const Word, 4>)> skipped_release;
-+    // QMD V03_00 release flags: 7:0 address high, 19 membar, 22:20 reduction op, 23 enable,
-+    // 25:24 reduction format, 26 reduction enable, 28:27 non-blocking interrupt, 29 64-bit
-+    // payload, 31:30 structure size (0 four words with timestamp, 1 one word, 2 two words).
-+    static bool IsDecodableRelease(Word flags) {
-+        const Word size = flags >> 30;
-+        if (flags & (1U << 29)) return false;
-+        if (flags & (1U << 26)) return size == 1 && ((flags >> 24) & 3) < 2;
-+        return size <= 1;
-+    }
-     template <typename Read, typename Release>
-     std::string_view Signal(Address address, Word argument, Read read, Release release) {
-         return Signal(address, argument, read, release, RejectShaderDispatch{});
-@@ -78,35 +109,24 @@ public:
-             if (!read(request.address, state.descriptor)) return "unmapped QMD";
-             const auto qmd = state.descriptor;
-             if ((qmd[18] & 0xff) != 0x30 || (qmd[4] & 0x100)) return "unsupported QMD version or queue";
--            // Validate the release slots before making any visible.
--            for (const Word base : ReleaseSlots) {
--                const Word flags = qmd[base + 1];
--                if (!(flags & (1U << 23))) continue;
--                const bool add = (flags & (1U << 26)) != 0;
--                if ((flags & (0x3bU << 24)) || (flags >> 30) != 1 ||
--                    (add && (flags & (7U << 20)))) return "unsupported QMD release format";
--                if (add) {
--                    if constexpr (!std::is_invocable_r_v<bool, Release, Address, Word, Word>)
--                        return "unsupported QMD reduction callback";
--                }
--            }
-             // A program Eden can't run is skipped, but the QMD still completes: its releases
-             // are what other queues and the CPU wait on (the console never fails a launch).
-             const bool dispatched = !(qmd[12] && (qmd[13] & 0xffff) && (qmd[14] & 0xffff)) || dispatch(qmd);
-             if (!dispatched) error = "native shader dispatch required";
-             if (trace) trace("run", request.address, dispatched ? 1 : 0);
-             state.completed = true;
--            for (const Word base : ReleaseSlots) {
-+            for (std::size_t slot = 0; slot < ReleaseSlots.size(); ++slot) {
-+                const Word base = ReleaseSlots[slot];
-                 const Word flags = qmd[base + 1];
-                 if (!(flags & (1U << 23))) continue;
--                const Address destination = (Address{flags & 0xff} << 32) | qmd[base];
--                bool released{};
--                if constexpr (std::is_invocable_r_v<bool, Release, Address, Word, Word>) {
--                    released = release(destination, qmd[base + 2], flags);
--                } else {
--                    released = release(destination, qmd[base + 2]);
-+                // Skip only this slot: the others are what other queues and the CPU wait on.
-+                if (!IsDecodableRelease(flags)) {
-+                    if (skipped_release) skipped_release(request.address, slot, std::span<const Word, 4>{&qmd[base], 4});
-+                    if (error.empty()) error = "unsupported QMD release format";
-+                    continue;
-                 }
--                if (!released) return "unmapped QMD release";
-+                const Address destination = (Address{flags & 0xff} << 32) | qmd[base];
-+                if (!release(destination, qmd[base + 2], flags)) return "unmapped QMD release";
-             }
-             if (qmd[16] & 1) {
-                 const Word action = (qmd[16] >> 1) & 7;
 diff --git a/src/video_core/nx2.h b/src/video_core/nx2.h
 index 7431fc5e37..d070270fbf 100644
 --- a/src/video_core/nx2.h
@@ -1848,19 +1292,6 @@ index 0000000000..0d2523c8af
 +}
 +
 +} // namespace VideoCommon
-diff --git a/src/video_core/pipeline_cache_files.h b/src/video_core/pipeline_cache_files.h
-index e2657de05f..10cd6167b8 100644
---- a/src/video_core/pipeline_cache_files.h
-+++ b/src/video_core/pipeline_cache_files.h
-@@ -14,7 +14,7 @@
- namespace VideoCommon {
- 
- inline constexpr u32 OpenGLPipelineCacheVersion = 48;
--inline constexpr u32 VulkanPipelineCacheVersion = 53;
-+inline constexpr u32 VulkanPipelineCacheVersion = 54;
- 
- // Official Eglantine (cache version 18 at c0cb3325) and this fork (a different version) both
- // used <shader dir>/<title>/vulkan.bin and vulkan_pipelines.bin. Each build deletes a file
 diff --git a/src/video_core/query_cache/query_cache.h b/src/video_core/query_cache/query_cache.h
 index 1cd92dcfe2..78b7e8a8ff 100644
 --- a/src/video_core/query_cache/query_cache.h
@@ -2624,10 +2055,10 @@ index 8b9e72b3e3..8ab12bcbf2 100644
          /// Memory type of device-local buffers by usage and flags (CreateBufferInSeparatePool).
          mutable std::unordered_map<u64, u32> buffer_memory_types;
 diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
-index 234b7f9f08..d501dea176 100644
+index 94e9ddf6ce..3a76e659e5 100644
 --- a/src/yuzu/main_window.cpp
 +++ b/src/yuzu/main_window.cpp
-@@ -2007,6 +2007,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
+@@ -2006,6 +2006,25 @@ void MainWindow::BootGame(const QString& filename, Service::AM::FrontendAppletPa
          Settings::UpdateGPUAccuracy();
          LOG_INFO(Config, "Applied recommended MKW settings after per-game configuration");
      }
@@ -2654,7 +2085,7 @@ index 234b7f9f08..d501dea176 100644
  
      if (UISettings::values.select_user_on_boot && !user_flag_cmd_line) {
 diff --git a/src/yuzu/main_window.h b/src/yuzu/main_window.h
-index 4d7a9fb1a2..57d49e83ae 100644
+index d6b85a992f..71ff93c927 100644
 --- a/src/yuzu/main_window.h
 +++ b/src/yuzu/main_window.h
 @@ -508,6 +508,8 @@ private:
