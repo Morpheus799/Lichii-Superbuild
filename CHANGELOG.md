@@ -3,6 +3,16 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## 261106-v9
+
+- Base: `nx2` `9fa4a71` (unchanged from v8).
+- Adds reviewed `capy/*` fixes: NaN-defined shader min/max/clamp, QMD release
+  formats, framebuffer and stream-buffer limits, texture-cache OOM retries,
+  texture-cache debug stats off, and mesh-shader skip logging.
+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
+  superbuild fix set.
+- Windows and Linux, standard and PGO.
+
 ## 261106-v8
 
 - Base: `nx2` `9fa4a71` — upstream #149 (OoT split deadlock/FSR3/RED-SURED),
