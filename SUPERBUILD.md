@@ -25,7 +25,7 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `d5494116902d15f9616efbe7668bbcec33a93f9c` (2026-11-07).
+- Base commit: `b7ff181f20a1a397999151b84750f65f417f2b45` (2026-11-07).
   The grass/foliage fix is now upstream as #551, so the 14-commit
   `capy/oot-hyrule-grass-fix` series is no longer carried.
 - Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
@@ -44,7 +44,9 @@ a stock build as fallback.
   install), #160 (ZBIC failure), #221 (IPSwitch lines), #551 (OoT grass
   fix, 64 storage buffers and compute-pipeline rebuilds), #582/#583
   (HMMA on VK_KHR_cooperative_matrix, OoT +12-24% and RDNA4 41->60 fps),
-  #587 (float16 for LSFG frame generation).
+  #587 (float16 for LSFG frame generation), #606
+  (NVIDIA DLSS Super Resolution for OoT) and #569 (task/mesh pipelines
+  through compute without VK_EXT_mesh_shader).
   Those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
@@ -59,9 +61,13 @@ There is no separate AMD variant.
 ## Releases
 
 Standard and PGO builds are published for Windows and Linux x86_64. PGO is the
-recommended package. The PGO profile is `eglantine.profdata`, built with Clang 23
-and LLD, using bundled static FFmpeg to avoid the MSYS2 `libva.dll` false
-positive.
+recommended package. Both use `-fprofile-use=eglantine.profdata` (50,134 Itanium-
+mangled names, matching our MinGW/Itanium-ABI Clang): Windows with Clang 23 + LLD,
+Linux with Clang 23 + LLD, which is exactly upstream's Linux PGO method. Upstream's
+Windows PGO uses clang-cl + ThinLTO + `lichii-windows.profdata` (MSVC-ABI names);
+that profile cannot be read by our compiler, and ThinLTO was tested and reverted
+because MSYS2 ships no `llvm-ar` to index bitcode archives. Windows packages use
+bundled static FFmpeg to avoid the MSYS2 `libva.dll` false positive.
 
 The updater points at this repository's releases (`callme-sy/Lichii-Superbuild`,
 `vN` tags, `Lichii-vN-<platform>` assets). It is enabled in release builds only when
@@ -159,6 +165,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout d5494116
+git checkout b7ff181f
 git apply patches/superbuild.patch
 ```
