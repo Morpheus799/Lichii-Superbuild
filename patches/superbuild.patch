@@ -26,10 +26,10 @@ index 873b99bec2..258906d26f 100644
 +dist-local/
 +tools/superbuild/local/
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..5e1c0cd7f6 100644
+index bc40878ce6..d45ed3ce85 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,85 @@
+@@ -1,11 +1,96 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -39,9 +39,21 @@ index bc40878ce6..5e1c0cd7f6 100644
 +checksums.
  
 -## [Unreleased]
-+## v10
++## v11
  
 -## [0.1.0]
++- Base: `nx2` `32886f75` — upstream #351 table-pointer pool binding, #432
++  NaN min/max, #436 QMD release formats, #504 updater, #255/#497 microphone
++  capture and #499 NUP metadata.
++- Both Windows packages now use bundled static FFmpeg, removing the MSYS2
++  `libva.dll` false positive.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
+ 
+-- Initial release candidate
++## v10
++
 +- Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
 +  usage tracking, #429 32-bit global atomics, #433 dynamic per-tap offsets,
 +  #438 macro hand-back, #439 Turing macro RAM, #444 gathered-buffer lifetime,
@@ -50,8 +62,7 @@ index bc40878ce6..5e1c0cd7f6 100644
 +- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
 +  superbuild fix set.
 +- Windows and Linux, standard and PGO.
- 
--- Initial release candidate
++
 +## 261106-v9
 +
 +- Base: `nx2` `9fa4a71` (unchanged from v8).
@@ -233,24 +244,24 @@ index 48e0ad1f2c..e9d00c5725 100644
  On Windows, extract the entire build archive and run **lichii.exe**. Only use games and system files you have legally obtained. Games, keys and firmware are not included.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..941caf33e9
+index 0000000000..fdfdab49e8
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,149 @@
 +# Lichii Superbuild (unofficial)
 +
 +## Credits
 +
 +This build exists because of the work of:
 +
-+- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, Bananza page-mark batching, perf9 paths
++- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, compatibility reports, first-run performance defaults, Bananza page-mark batching, perf9 paths
 +- [jojo-chaechae/Eglantine](https://github.com/jojo-chaechae/Eglantine) — GPU-split submit and macro hand-back fixes
-+- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix
++- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix and near-leaf pointer fix
 +- [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
 +- [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
++- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 +- [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
 +- [Shakoquo/Lichii-sharkiix-version](https://github.com/Shakoquo/Lichii-sharkiix-version) — GPU thread wake and AMD/OoT tuning experiments
-+- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
 +- The Eglantine, Eden, yuzu and Sudachi contributors
 +
 +Curated performance and correctness fixes on top of
@@ -264,31 +275,32 @@ index 0000000000..941caf33e9
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `412c753b3a37a6b1d1459da3052dcff96d807af1` (2026-11-07)
++- Base commit: `32886f755c8f1a08f18b2ed328f4ceef15a5a1d9` (2026-11-07)
 +- Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
 +  #295, #149, #185, #197, #203, #215, #232, #241, #397, #398, #410, #412,
-+  #413, #414, plus #418 (core pinning experiment), #425 (64-byte usage
-+  tracking), #429 (32-bit global atomics), #433 (dynamic per-tap offsets),
-+  #435 (wrapping address rejection), #438 (macro hand-back), #439 (Turing
-+  macro RAM), #442, #443, #444, #482, #485 and #490. Those are not re-applied
-+  here.
++  #413, #414, #418, #425, #429, #433, #435, #438, #439, #442, #443, #444,
++  #482, #485, #490, #432 (NaN min/max), #436 (QMD release formats), #351
++  (table-pointer pool binding), #504 (updater), #255/#497 (microphone) and
++  #499 (NUP metadata). Those are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
 +
 +- `nx2` — untouched upstream snapshot used as the base
-+- `superbuild` — current curated build, including all portable AMD-relevant fixes
-+- `legacy/superbuild-55532` — historical 55532-based branch, kept for reference
++- `superbuild` — current curated build, including all portable fixes
 +
-+This repository is a standalone private mirror, not a GitHub fork-network fork.
-+AMD-relevant fixes are generic and fused into the single `superbuild` branch;
-+there is no separate AMD variant.
++This repository is a standalone public mirror, not a GitHub fork-network fork.
++There is no separate AMD variant.
 +
 +## Releases
 +
-+PGO is the only published build. Normal builds are used for validation and A/B
-+testing only; they are not attached to releases. The PGO profile is
-+`eglantine.profdata`, built with Clang 23 and LLD.
++Standard and PGO builds are published for Windows and Linux x86_64. PGO is the
++recommended package. The PGO profile is `eglantine.profdata`, built with Clang 23
++and LLD, using bundled static FFmpeg to avoid the MSYS2 `libva.dll` false
++positive.
++
++The updater is **not wired to this repository yet**. It remains disabled for
++local builds until its release feed and asset naming are adapted here.
 +
 +## Included fixes
 +
@@ -382,7 +394,7 @@ index 0000000000..941caf33e9
 +`superbuild`.
 +
 +```bash
-+git checkout 412c753b
++git checkout 32886f75
 +git apply patches/superbuild.patch
 +```
 diff --git a/dist/nx2_switches.txt b/dist/nx2_switches.txt
