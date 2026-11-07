@@ -3,6 +3,16 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## 261106-v8
+
+- Base: `nx2` `9fa4a71` — upstream #149 (OoT split deadlock/FSR3/RED-SURED),
+  #412 (GPU back bookkeeping), #414 (quad index growth), #413 (lock-free flush
+  check), #410 (paired cbuf pointer), #215 (query waits), #197, #241, #398,
+  #185, #203, #397 (CPU-write guard) and #232 (hybrid CPU cores).
+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
+  superbuild fix set.
+- Windows and Linux, standard and PGO.
+
 ## 261106-v7
 
 - Base: `nx2` `4c173bb7` — upstream #303 opt-in desktop compatibility reports
