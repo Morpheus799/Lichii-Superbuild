@@ -25,6 +25,165 @@ index 873b99bec2..258906d26f 100644
 +nx2_switches.local.txt
 +dist-local/
 +tools/superbuild/local/
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index bc40878ce6..82d8a2109b 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,11 +1,148 @@
+ # Changelog
+ 
+-All notable changes to Eglantine are documented here. Each release's notes are taken from its
+-`## [X.Y.Z]` section (release candidates use the section of the version they are a candidate for).
+-New entries go under `## [Unreleased]`; `tools/ci/bump-version.sh` turns them into a version section.
++All releases are unofficial builds. See the GitHub releases for assets and
++checksums.
+ 
+-## [Unreleased]
++## v14
+ 
+-## [0.1.0]
++- Base: `nx2` `33acb0e1a` — a 24-commit upstream batch. The grass/foliage fix
++  is now upstream as #551, so our 14 carried `capy/oot-hyrule-grass-fix`
++  commits were dropped along with the texture-cache OOM, framebuffer-limit,
++  GPU-thread-wake and HMMA-unroll commits that upstream absorbed (#440, #427,
++  #446, #174). Our superbuild layer is now much smaller.
++- New upstream: #588 TXD/ATOMG shadow registers, #584 Dynamic FPS down to
++  10 fps, #585 sysmix audio, #580 page-table walk reuse, #550 disk-cache
++  pipelines, #465 bounded unbuilt-pipeline wait, #333 page-table sizing,
++  #481 sorted RangeSet, #250 skip empty invalidations, #245 bindless handle
++  words, #495 descriptor payload growth, #530 Linux core pinning, #270
++  present FPS limit, #365 Overwolf hook disable, #484 maximized window,
++  #511 MIME install, #160 ZBIC failure, #221 IPSwitch lines.
++- Keeps our unique layer: OoT recommended-settings prompt, GPU-split
++  scheduler/fence fixes, query-cache fence-flagged reports, texture-cache
++  minimum threshold, `EDEN_NX2_PRELOAD_ALL_PIPELINES` and
++  `EDEN_NX2_ASYNC_DISCARD` presets, and the updater wired to this repository.
++- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
+ 
+-- Initial release candidate
++## v13
++
++- Base: `nx2` `71268a75` — upstream #509 in-place AppImage updater with one
++  rollback copy, and #520 clang-cl build-check CI.
++- **OoT Hyrule Field grass fixed.** Carries all 14 commits of zortos's
++  `capy/oot-hyrule-grass-fix` (`dfde7585e2`), the integration of open fix chain
++  PR #434 / #395 / #421: 64 storage buffers per stage, 64-bit binding masks,
++  rebuild of compute translations whose null pointer slots fill later, keeping
++  every previously bound pointer on rebuild, and per-stage storage limits.
++  Castle Town's near hedges keep their leaves and Hyrule Field's grass stays
++  dense. The branch is still unmerged into `nx2`.
++- Dropped the v12 `capy/oot-hyrule-grass-ab` A/B experiment: with the fix in
++  place there is nothing left to bisect.
++- Updater still points at this repository (`vN` tags), now with in-place
++  AppImage update support from #509.
++- Windows and Linux, standard and PGO, bundled static FFmpeg on Windows.
++
++## v12
++
++- Base: `nx2` `91d1aada` — upstream #512 device-loss diagnostics, #515 mesh
++  point/line output, #518/#519/#526 clang-cl ThinLTO release builds,
++  #524 `-fno-unswitch-loops` and #537 frame-generation status.
++- Updater now points at this repository: `callme-sy/Lichii-Superbuild`, `vN`
++  tags and `Lichii-vN-<platform>` assets.
++- Carries `capy/oot-hyrule-grass-ab` A/B diagnostics for the OoT Hyrule Field
++  grass regression. Four off-by-default switches, no change to stock behaviour;
++  the full fix remains open upstream as PR #434.
++- Both Windows packages use bundled static FFmpeg.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## v11
++
++- Base: `nx2` `32886f75` — upstream #351 table-pointer pool binding, #432
++  NaN min/max, #436 QMD release formats, #504 updater, #255/#497 microphone
++  capture and #499 NUP metadata.
++- Both Windows packages now use bundled static FFmpeg, removing the MSYS2
++  `libva.dll` false positive.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## v10
++
++- Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
++  usage tracking, #429 32-bit global atomics, #433 dynamic per-tap offsets,
++  #438 macro hand-back, #439 Turing macro RAM, #444 gathered-buffer lifetime,
++  #435 address-wrap rejection, #443/#442 game-list fixes and #418 core pinning.
++- Keeps the v9 candidate fixes that remain unmerged.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v9
++
++- Base: `nx2` `9fa4a71` (unchanged from v8).
++- Adds reviewed `capy/*` fixes: NaN-defined shader min/max/clamp, QMD release
++  formats, framebuffer and stream-buffer limits, texture-cache OOM retries,
++  texture-cache debug stats off, and mesh-shader skip logging.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v8
++
++- Base: `nx2` `9fa4a71` — upstream #149 (OoT split deadlock/FSR3/RED-SURED),
++  #412 (GPU back bookkeeping), #414 (quad index growth), #413 (lock-free flush
++  check), #410 (paired cbuf pointer), #215 (query waits), #197, #241, #398,
++  #185, #203, #397 (CPU-write guard) and #232 (hybrid CPU cores).
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v7
++
++- Base: `nx2` `4c173bb7` — upstream #303 opt-in desktop compatibility reports
++  and #287 Linux AppImage switch discovery, plus all earlier upstream fixes.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v6
++
++- Base: `nx2` `588bfa61` — upstream #314 first-run performance defaults,
++  plus #224, #290 and #295.
++- Ocarina of Time now asks on launch whether to use the recommended
++  performance settings: FSR3 scaling, GPU accuracy Low, GPU NVDEC, async
++  presentation and async shaders. They apply for the session and do not change
++  saved preferences.
++- New desktop configs receive those values as their first-run defaults.
++- Keeps the GPU thread wake from Shakoquo's sharkiix work and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v4
++
++- Base: `nx2` `a7a28175` — upstream PR #224 (async native discard), #290
++  (worker lost-wake fix), #295 (misaligned SSBO accesses and compute write
++  ordering).
++- Added GPU thread wake from Shakoquo's sharkiix work: queued commands wake the
++  GPU thread immediately; the poll interval is 500 µs instead of 1 ms.
++- Keeps the full superbuild fix set: OoT reticle, GPU split, Bananza page-mark
++  batching, Frizti ports, query timing, HMMA unroll, AMD-oriented fixes.
++- Windows and Linux, standard and PGO.
++
++## 261106-v3
++
++- Base: `nx2` `c9bdbaa3` — upstream #290 and #295.
++- Added PR #224 `EDEN_NX2_ASYNC_DISCARD=1`: native draws skip unbuilt pipelines
++  instead of stalling; measured `draws held for unbuilt pipelines` dropped from
++  816 ms to 0–8.7 ms per 10 s.
++- Keeps the full superbuild fix set.
++- Windows and Linux, standard and PGO.
++
++## 261106-v2
++
++- Base: `nx2` `e219d24c` — upstream #273 (AMD shader typing, atomic retries,
++  compiler stalls) and #284 (MinGW AV1).
++- First release with the full curated superbuild fix set: Bananza page-mark
++  batching, OoT reticle, GPU split, Frizti ports, mja00 fixes, Nolar AMD fixes.
++- Windows and Linux, standard and PGO.
++- Includes reference builds from `e219d24c` and `55532f2d`.
 diff --git a/CMakeModules/GenerateSCMRev.cmake b/CMakeModules/GenerateSCMRev.cmake
 index bdd14dbf42..011ca069b6 100644
 --- a/CMakeModules/GenerateSCMRev.cmake
@@ -53,6 +212,73 @@ index bdd14dbf42..011ca069b6 100644
  if (NIGHTLY_BUILD)
      set(REPO_NAME "Lichii Nightly")
  else()
+diff --git a/MCP-DEBUG.md b/MCP-DEBUG.md
+new file mode 100644
+index 0000000000..a0496b95b6
+--- /dev/null
++++ b/MCP-DEBUG.md
+@@ -0,0 +1,61 @@
++# Built-in MCP debug server
++
++These builds include Lichii's opt-in debug server and its MCP adapter. It is off
++unless `EDEN_NX2_DEBUG_SERVER` is set, so normal play is unaffected.
++
++## Start the server
++
++Set the address in `nx2_switches.txt` or in the environment before launching:
++
++```text
++EDEN_NX2_DEBUG_SERVER=127.0.0.1:6545
++```
++
++Optional: move dumps elsewhere.
++
++```text
++EDEN_NX2_DEBUG_DIR=<dir>
++```
++
++The log shows:
++
++```text
++Debug server listening on 127.0.0.1:6545, dump dir ...
++```
++
++## Adapter
++
++`tools/nx2/debug_mcp.py` is a stdlib-only Python adapter. Without `--call` it is
++a stdio MCP server for an MCP client. With `--call` it runs one request:
++
++```bash
++python tools/nx2/debug_mcp.py --server 127.0.0.1:6545 --call "{\"method\":\"status\"}"
++python tools/nx2/debug_mcp.py --server 127.0.0.1:6545 --call "{\"method\":\"screenshot\",\"params\":{\"height\":1080}}" --out shot.png
++python tools/nx2/debug_mcp.py --server 127.0.0.1:6545 --call "{\"method\":\"log_tail\",\"params\":{\"lines\":200}}"
++```
++
++Request format: `{"method": <tool>, "params": {...}}`.
++
++## Tools
++
++- `status`
++- `screenshot`
++- `log_tail`, `log_filter`
++- `capture_frame` — pass colour targets, dispatch storage images, present source
++- `capture_image`
++- `reject_shaders` — `EDEN_NX2_REJECT_HASH` at runtime; `"reject": false` restores
++- `read_memory`, `search_memory`, `read_gpu_memory`
++- `input`, `input_sequence`
++- `sample` — sampled thread stacks
++
++`read_memory` and `search_memory` read guest virtual memory; `read_gpu_memory`
++reads GPU virtual memory. `capture_frame`, `reject_shaders` and
++`read_gpu_memory` are Vulkan-only.
++
++Shader hashes are 16 hex digits. A shorter hash is refused, not zero-padded.
++
++## Safety
++
++The server listens on loopback only. It is intended for local debugging. Do not
++expose the port to a network. Dumps and captures can contain game assets; keep
++them local and do not upload `.rdc` captures or dumps publicly.
 diff --git a/README.md b/README.md
 index 48e0ad1f2c..a2775eec3f 100644
 --- a/README.md
@@ -72,11 +298,25 @@ index 48e0ad1f2c..a2775eec3f 100644
  This is an independent fork, not an official release of those upstream projects. Lichii is not affiliated with Nintendo.
 diff --git a/SUPERBUILD.md b/SUPERBUILD.md
 new file mode 100644
-index 0000000000..5f8ed38c33
+index 0000000000..a975a07010
 --- /dev/null
 +++ b/SUPERBUILD.md
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,162 @@
 +# Lichii Superbuild (unofficial)
++
++## Credits
++
++This build exists because of the work of:
++
++- [zortos293/Lichii](https://github.com/zortos293/Lichii) — base `nx2`, compatibility reports, first-run performance defaults, Bananza page-mark batching, perf9 paths
++- [jojo-chaechae/Eglantine](https://github.com/jojo-chaechae/Eglantine) — GPU-split submit and macro hand-back fixes
++- [Duck912/Eglantine-ducky](https://github.com/Duck912/Eglantine-ducky) — OoT reticle/CPU-write fix and near-leaf pointer fix
++- [Frizti/Lichii](https://github.com/Frizti/Lichii) — scoped buffer/submission/FSR3 fixes and Dynamic FPS
++- [mja00/Lichii](https://github.com/mja00/Lichii) — uniform-bank upload, query timing, HMMA unroll
++- [Nolar-Hack/Lichii](https://github.com/Nolar-Hack/Lichii) — video swap-interval, compute sizing, scheduler exclusion, guest RAM release, texture-cache threshold
++- [BrunoSilvestre00](https://github.com/BrunoSilvestre00) — async native draw discard (PR #224)
++- [Shakoquo/Lichii-sharkiix-version](https://github.com/Shakoquo/Lichii-sharkiix-version) — GPU thread wake and AMD/OoT tuning experiments
++- The Eglantine, Eden, yuzu and Sudachi contributors
 +
 +Curated performance and correctness fixes on top of
 +[zortos293/Lichii](https://github.com/zortos293/Lichii) `nx2`.
@@ -89,26 +329,45 @@ index 0000000000..5f8ed38c33
 +
 +- Upstream: `zortos293/Lichii`
 +- Branch: `nx2`
-+- Base commit: `e219d24c5affb2450963017dd8b07ec22618654e` (2026-11-06)
-+- Upstream `nx2` already contains #273 (AMD shader typing/depth sampling) and
-+  #284 (AV1 in MinGW builds); those are not re-applied here.
++- Base commit: `33acb0e1a00065749d190b5c0bede93e2cd54984` (2026-11-07).
++  The grass/foliage fix is now upstream as #551, so the 14-commit
++  `capy/oot-hyrule-grass-fix` series is no longer carried.
++- Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
++  #295, #149, #185, #197, #203, #215, #232, #241, #397, #398, #410, #412,
++  #413, #414, #418, #425, #429, #433, #435, #438, #439, #442, #443, #444,
++  #482, #485, #490, #432, #436, #351, #504, #255/#497, #499, #512, #515,
++  #518/#519/#526, #524, #537, #509, #520, plus the 24-commit batch landing
++  #588 (TXD/ATOMG shadow registers), #584 (Dynamic FPS down to 10 fps),
++  #585 (sysmix audio), #580 (page-table walk reuse), #550 (disk-cache
++  pipelines), #465 (bounded unbuilt-pipeline wait), #333 (page-table
++  sizing), #481 (sorted RangeSet), #250 (skip empty invalidations), #174
++  (software HMMA unroll), #245 (bindless handle words), #446 (50 us GPU
++  thread poll), #440 (texture-cache OOM), #427 (framebuffer limits), #495
++  (descriptor payload growth), #530 (Linux core pinning), #270 (present FPS
++  limit), #365 (Overwolf hook disable), #484 (maximized window), #511 (MIME
++  install), #160 (ZBIC failure), #221 (IPSwitch lines) and #551 (OoT grass
++  fix, 64 storage buffers and compute-pipeline rebuilds).
++  Those are not re-applied here.
 +- License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 +
 +## Branches
 +
 +- `nx2` — untouched upstream snapshot used as the base
-+- `superbuild` — current curated build, including all portable AMD-relevant fixes
-+- `legacy/superbuild-55532` — historical 55532-based branch, kept for reference
++- `superbuild` — current curated build, including all portable fixes
 +
-+This repository is a standalone private mirror, not a GitHub fork-network fork.
-+AMD-relevant fixes are generic and fused into the single `superbuild` branch;
-+there is no separate AMD variant.
++This repository is a standalone public mirror, not a GitHub fork-network fork.
++There is no separate AMD variant.
 +
 +## Releases
 +
-+PGO is the only published build. Normal builds are used for validation and A/B
-+testing only; they are not attached to releases. The PGO profile is
-+`eglantine.profdata`, built with Clang 23 and LLD.
++Standard and PGO builds are published for Windows and Linux x86_64. PGO is the
++recommended package. The PGO profile is `eglantine.profdata`, built with Clang 23
++and LLD, using bundled static FFmpeg to avoid the MSYS2 `libva.dll` false
++positive.
++
++The updater points at this repository's releases (`callme-sy/Lichii-Superbuild`,
++`vN` tags, `Lichii-vN-<platform>` assets). It is enabled in release builds only when
++`LICHII_BUILD_TAG` and `LICHII_BUILD_PLATFORM` are set at configure time.
 +
 +## Included fixes
 +
@@ -123,6 +382,8 @@ index 0000000000..5f8ed38c33
 +| Do not download GPU data over newer CPU writes (OoT reticle) | Duck912, `05fe0408` |
 +| Submit deferred work before the split back waits on fences | GPU-split branch, `498345a5` |
 +| Hand macros back when the GPU split stops | GPU-split branch, `5b1b5c0f`, conflict resolved |
++| Wake the GPU thread on a queued command | Shakoquo `sharkiix`, `28f594acc7` |
++| OoT recommended settings prompt (session-only) | superbuild UI, `capy/new-user-performance-defaults` values |
 +
 +### Additional portable fixes
 +
@@ -152,6 +413,8 @@ index 0000000000..5f8ed38c33
 +
 +- `EDEN_NX2_PRELOAD_ALL_PIPELINES=1` is preset in the packaged
 +  `nx2_switches.txt`.
++- `EDEN_NX2_ASYNC_DISCARD=1` is preset; native draws skip unbuilt pipelines
++  instead of stalling (experimental, from PR #224).
 +- `EDEN_NX2_COMPUTE_MAPPING_SIZED=1` restores the old compute-buffer sizing for
 +  A/B testing of the OoT overexposure candidate.
 +- `EDEN_NX2_TC_MINIMUM_MIB` controls the texture-cache collection threshold.
@@ -198,28 +461,19 @@ index 0000000000..5f8ed38c33
 +`superbuild`.
 +
 +```bash
-+git checkout e219d24c
++git checkout 33acb0e1a
 +git apply patches/superbuild.patch
 +```
-+
-+## Credits
-+
-+- zortos293 and the Lichii/Eden/yuzu contributors
-+- Frizti
-+- mja00 / Matt Artist
-+- Nolar-Hack
-+- Duck912
-+- jojo-chaechae
-+- Everyone whose fixes were ported or referenced above
 diff --git a/dist/nx2_switches.txt b/dist/nx2_switches.txt
-index 095ecdede4..a9a6e63a94 100644
+index 095ecdede4..68267cf6bd 100644
 --- a/dist/nx2_switches.txt
 +++ b/dist/nx2_switches.txt
-@@ -43,3 +43,4 @@ EDEN_NX2_FENCE_BATCH=1
+@@ -43,3 +43,5 @@ EDEN_NX2_FENCE_BATCH=1
  #EDEN_NX2_SPLIT_SKIP=1
  #EDEN_NX2_AUTO_STUB=1
  #EDEN_NX2_KEEP_ASTC=1
 +EDEN_NX2_PRELOAD_ALL_PIPELINES=1
++EDEN_NX2_ASYNC_DISCARD=1
 diff --git a/src/common/game_presets.h b/src/common/game_presets.h
 index 83dd4d3c3f..1379e76568 100644
 --- a/src/common/game_presets.h

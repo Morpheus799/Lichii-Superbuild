@@ -5,7 +5,7 @@ checksums.
 
 ## v14
 
-- Base: `nx2` `33acb0e1a` — a 24-commit upstream batch. The grass/foliage fix
+- Base: `nx2` `d5494116` — a 27-commit upstream batch. The grass/foliage fix
   is now upstream as #551, so our 14 carried `capy/oot-hyrule-grass-fix`
   commits were dropped along with the texture-cache OOM, framebuffer-limit,
   GPU-thread-wake and HMMA-unroll commits that upstream absorbed (#440, #427,
@@ -17,6 +17,7 @@ checksums.
   words, #495 descriptor payload growth, #530 Linux core pinning, #270
   present FPS limit, #365 Overwolf hook disable, #484 maximized window,
   #511 MIME install, #160 ZBIC failure, #221 IPSwitch lines.
+- Also #582/#583 HMMA on `VK_KHR_cooperative_matrix` (OoT +12-24% standing/walking, RDNA4 41 -> 60 fps) and #587 float16 on the device so LSFG frame generation loads.
 - Keeps our unique layer: OoT recommended-settings prompt, GPU-split
   scheduler/fence fixes, query-cache fence-flagged reports, texture-cache
   minimum threshold, `EDEN_NX2_PRELOAD_ALL_PIPELINES` and
