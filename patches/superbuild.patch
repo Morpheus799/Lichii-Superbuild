@@ -158,10 +158,10 @@ index 0000000000..a0496b95b6
 +expose the port to a network. Dumps and captures can contain game assets; keep
 +them local and do not upload `.rdc` captures or dumps publicly.
 diff --git a/README.md b/README.md
-index 0502b3f38e..d488b8c528 100644
+index 48e0ad1f2c..e9d00c5725 100644
 --- a/README.md
 +++ b/README.md
-@@ -12,12 +12,37 @@
+@@ -12,6 +12,28 @@
  
  # Lichii
  
@@ -190,6 +190,7 @@ index 0502b3f38e..d488b8c528 100644
  Lichii is an experimental, open-source Nintendo Switch and Switch 2 emulator written in C++. It builds on Eglantine, Eden, yuzu and Sudachi, preserving their contributions while developing this fork's game compatibility and renderer fixes.
  
  This is an independent fork, not an official release of those upstream projects. Lichii is not affiliated with Nintendo.
+@@ -20,6 +42,9 @@ Visit the [official Lichii website](https://lichii.zortos.me) to find games and
  
  ## Downloads and setup
  
@@ -430,77 +431,6 @@ index 7b33e18f0b..ad20b7ac3a 100644
          LOG_DEBUG(Core, "Shutdown OK");
      }
  
-diff --git a/src/core/gpu_dirty_memory_manager.h b/src/core/gpu_dirty_memory_manager.h
-index 9754e4b4f7..1e93a30e60 100644
---- a/src/core/gpu_dirty_memory_manager.h
-+++ b/src/core/gpu_dirty_memory_manager.h
-@@ -48,6 +48,22 @@ public:
-                                                 std::memory_order_relaxed));
-     }
- 
-+    /// Calls `callback` for each write collected and not yet gathered, without consuming them.
-+    void ForEachPending(const std::function<void(PAddr, size_t)>& callback) {
-+        std::vector<TransformAddress> pending;
-+        {
-+            std::scoped_lock lk(guard);
-+            pending = back_buffer;
-+            const TransformAddress t = current.load(std::memory_order_acquire);
-+            if (IsValid(t.address)) {
-+                pending.push_back(t);
-+            }
-+        }
-+        for (const auto& transform : pending) {
-+            ForEachRun(transform, callback);
-+        }
-+    }
-+
-     void Gather(std::function<void(PAddr, size_t)>& callback) {
-         // FlushRegion also gathers off the GPU thread (host1x video decode reads); serialize
-         // gatherers so one cannot swap or clear front_buffer while another iterates it.
-@@ -61,19 +77,7 @@ public:
-             }
-         }
-         for (auto& transform : front_buffer) {
--            size_t offset = 0;
--            u64 mask = transform.mask;
--            while (mask != 0) {
--                const size_t empty_bits = std::countr_zero(mask);
--                offset += empty_bits << align_bits;
--                mask = mask >> empty_bits;
--
--                const size_t continuous_bits = std::countr_one(mask);
--                callback((static_cast<PAddr>(transform.address) << page_bits) + offset,
--                         continuous_bits << align_bits);
--                mask = continuous_bits < align_size ? (mask >> continuous_bits) : 0;
--                offset += continuous_bits << align_bits;
--            }
-+            ForEachRun(transform, callback);
-         }
-         front_buffer.clear();
-     }
-@@ -111,6 +115,22 @@ private:
-         u32 mask;
-     };
- 
-+    template <typename Func>
-+    static void ForEachRun(const TransformAddress& transform, Func&& callback) {
-+        size_t offset = 0;
-+        u64 mask = transform.mask;
-+        while (mask != 0) {
-+            const size_t empty_bits = std::countr_zero(mask);
-+            offset += empty_bits << align_bits;
-+            mask = mask >> empty_bits;
-+            const size_t continuous_bits = std::countr_one(mask);
-+            callback((static_cast<PAddr>(transform.address) << page_bits) + offset,
-+                     continuous_bits << align_bits);
-+            mask = continuous_bits < align_size ? (mask >> continuous_bits) : 0;
-+            offset += continuous_bits << align_bits;
-+        }
-+    }
-+
-     constexpr static size_t page_bits = DEVICE_PAGEBITS - 1;
-     constexpr static size_t page_size = 1ULL << page_bits;
-     constexpr static size_t page_mask = page_size - 1;
 diff --git a/src/core/hle/service/nx2_gsv.h b/src/core/hle/service/nx2_gsv.h
 index a80387be01..b58bca1efd 100644
 --- a/src/core/hle/service/nx2_gsv.h
@@ -666,11 +596,11 @@ index c8f3ae570d..1896614526 100644
          for (u32 row = 0; row < 2; ++row)
              packed[row] = ctx.OpPackHalf2x16(u32ty, ctx.OpCompositeConstruct(ctx.F32[2],
 diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
-index d910722226..67c2bf287f 100644
+index 543e9f0dab..c6f08a003f 100644
 --- a/src/tests/CMakeLists.txt
 +++ b/src/tests/CMakeLists.txt
-@@ -67,6 +67,7 @@ add_executable(tests
-     video_core/command_fetch_order.cpp
+@@ -68,6 +68,7 @@ add_executable(tests
+     video_core/gpu_written_pages.cpp
      video_core/command_writer.cpp
      video_core/split_fence_wait.cpp
 +    video_core/nx2_written_pages.cpp
@@ -1016,7 +946,7 @@ index 918fcf1c0e..e9040af774 100644
  }
  
 diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
-index a248222d09..1a57aec0fa 100644
+index 7327240629..13458f08bd 100644
 --- a/src/video_core/buffer_cache/buffer_cache.h
 +++ b/src/video_core/buffer_cache/buffer_cache.h
 @@ -21,6 +21,7 @@
@@ -1043,7 +973,7 @@ index a248222d09..1a57aec0fa 100644
          // Switch 2 titles: upload the CPU's bytes into the buffer instead, as CachedWriteMemory
          // does, so the page stays GPU-owned and nothing waits for the host GPU.
          static const int forced = [] {
-@@ -742,7 +748,9 @@ bool BufferCache<P>::BindGraphicsStorageBuffer(size_t stage, size_t ssbo_index,
+@@ -744,7 +750,9 @@ bool BufferCache<P>::BindGraphicsStorageBuffer(size_t stage, size_t ssbo_index,
          StorageBufferBinding(ssbo_addr, cbuf_index, is_written,
                               maxwell3d->GetNativeMacroEngine().native_turing ||
                                   indirect_offset != ~0U,
@@ -1054,7 +984,7 @@ index a248222d09..1a57aec0fa 100644
      if (indirect_offset != ~0U) {
          TraceTablePointer(false, stage, ssbo_index, cbuf_index, cbuf_offset, indirect_offset, holder,
                            channel_state->storage_buffers[stage][ssbo_index]);
-@@ -833,8 +841,20 @@ void BufferCache<P>::BindComputeStorageBuffer(size_t ssbo_index, u32 cbuf_index,
+@@ -835,8 +843,20 @@ void BufferCache<P>::BindComputeStorageBuffer(size_t ssbo_index, u32 cbuf_index,
          }
          ssbo_addr = holder + indirect_offset;
      }
@@ -1077,72 +1007,7 @@ index a248222d09..1a57aec0fa 100644
      if (indirect_offset != ~0U) {
          TraceTablePointer(true, 0, ssbo_index, cbuf_index, cbuf_offset, indirect_offset, holder,
                            channel_state->compute_storage_buffers[ssbo_index]);
-@@ -1005,6 +1025,43 @@ void BufferCache<P>::PopAsyncFlushes() {
-     PopAsyncBuffers();
- }
- 
-+template <class P>
-+void BufferCache<P>::ClaimCpuWrites(std::span<const std::pair<DAddr, u64>> ranges) {
-+    for (const auto& [device_addr, size] : ranges) {
-+        if (IsRegionGpuModified(device_addr, size)) {
-+            ClearDownload(device_addr, size);
-+            gpu_modified_ranges.Subtract(device_addr, size);
-+        }
-+    }
-+}
-+
-+template <class P>
-+Common::RangeSet<DAddr> BufferCache<P>::PendingCpuWriteRanges() {
-+    Common::RangeSet<DAddr> ranges;
-+    if (pending_cpu_writes) {
-+        pending_cpu_writes(
-+            [&ranges](DAddr device_addr, size_t size) { ranges.Add(device_addr, size); });
-+    }
-+    return ranges;
-+}
-+
-+template <class P>
-+void BufferCache<P>::WriteDownloadedMemory(const Common::RangeSet<DAddr>& cpu_written,
-+                                           DAddr device_addr, const u8* data, u64 size) {
-+    if (!cpu_written.Intersects(device_addr, size)) {
-+        device_memory.WriteBlockUnsafe(device_addr, data, size);
-+        return;
-+    }
-+    Common::RangeSet<DAddr> parts;
-+    parts.Add(device_addr, size);
-+    cpu_written.ForEachInRange(device_addr, size, [&parts](DAddr start, DAddr end) {
-+        parts.Subtract(start, end - start);
-+    });
-+    parts.ForEach([&](DAddr start, DAddr end) {
-+        device_memory.WriteBlockUnsafe(start, data + (start - device_addr), end - start);
-+    });
-+}
-+
- template <class P>
- void BufferCache<P>::PopAsyncBuffers() {
-     if (async_buffers.empty()) {
-@@ -1019,6 +1076,9 @@ void BufferCache<P>::PopAsyncBuffers() {
-     auto& async_buffer = async_buffers.front();
-     u8* base = async_buffer->mapped_span.data();
-     const size_t base_offset = async_buffer->offset;
-+    // This runs on the fencing thread while the CPU keeps writing: CPU writes collected since the
-+    // copy was taken are newer than it, and the GPU thread hasn't dropped them from `ranges` yet.
-+    const Common::RangeSet<DAddr> cpu_written = PendingCpuWriteRanges();
-     for (const auto& copy : downloads) {
-         const DAddr device_addr = static_cast<DAddr>(copy.src_offset);
-         const u64 dst_offset = copy.dst_offset - base_offset;
-@@ -1026,8 +1086,8 @@ void BufferCache<P>::PopAsyncBuffers() {
-         // Only what no write replaced since the copy was taken: the rest is older than guest
-         // memory (CPU writes) or than the GPU's copy (GPU writes, still to be downloaded).
-         ranges.ForEachInRange(device_addr, copy.size, [&](DAddr start, DAddr end) {
--            device_memory.WriteBlockUnsafe(start, &read_mapped_memory[start - device_addr],
--                                           end - start);
-+            WriteDownloadedMemory(cpu_written, start, &read_mapped_memory[start - device_addr],
-+                                  end - start);
-             gpu_modified_ranges.Subtract(start, end - start);
-         });
-     }
-@@ -1356,6 +1416,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
+@@ -1398,6 +1418,7 @@ void BufferCache<P>::BindHostGraphicsUniformBuffer(size_t stage, u32 index, u32
      // Native programs keep tables next to their code in a 64 KiB bank read with indirect offsets
      // (Splatoon Raiders: the dialogue box corners in c1). Writes to that memory can go unnoticed by
      // the memory tracker, leaving stale host contents, so upload such a bank again once per frame.
@@ -1150,57 +1015,7 @@ index a248222d09..1a57aec0fa 100644
      if (has_host_buffer && (*channel_state->uniform_buffer_sizes)[stage][index] == 0x10000 &&
          size != 0 && gpu_memory != nullptr && gpu_memory->UsesNativeTiling() &&
          (Nx2Perf::Verify() || !native_indirect_uniforms_this_frame.contains(device_addr)) &&
-@@ -2694,11 +2755,12 @@ void BufferCache<P>::DownloadBuffersMemory(std::span<const BufferId> buffer_ids)
-     }
-     runtime.Finish();
-     const u8* const mapped_memory = download_staging.mapped_span.data();
-+    const Common::RangeSet<DAddr> cpu_written = PendingCpuWriteRanges();
-     for (const Download& download : downloads) {
-         const DAddr device_addr = slot_buffers[download.buffer_id].CpuAddr() + download.copy.src_offset;
--        device_memory.WriteBlockUnsafe(
--            device_addr, mapped_memory + (download.copy.dst_offset - download_staging.offset),
--            download.copy.size);
-+        WriteDownloadedMemory(cpu_written, device_addr,
-+                              mapped_memory + (download.copy.dst_offset - download_staging.offset),
-+                              download.copy.size);
-     }
- }
- 
-@@ -2732,13 +2794,14 @@ void BufferCache<P>::DownloadBufferMemory(Buffer& buffer, DAddr device_addr, u64
-     if (total_size_bytes == 0) {
-         return;
-     }
-+    const Common::RangeSet<DAddr> cpu_written = PendingCpuWriteRanges();
- 
-     if constexpr (requires { buffer.Mapped(); }) {
-         if (const auto mapped = buffer.Mapped(); !mapped.empty()) {
-             runtime.FinishForHostRead();
-             for (const BufferCopy& copy : copies) {
--                device_memory.WriteBlockUnsafe(buffer.CpuAddr() + copy.src_offset,
--                                               mapped.data() + copy.src_offset, copy.size);
-+                WriteDownloadedMemory(cpu_written, buffer.CpuAddr() + copy.src_offset,
-+                                      mapped.data() + copy.src_offset, copy.size);
-             }
-             return;
-         }
-@@ -2759,14 +2822,14 @@ void BufferCache<P>::DownloadBufferMemory(Buffer& buffer, DAddr device_addr, u64
-             // Undo the modified offset
-             const u64 dst_offset = copy.dst_offset - download_staging.offset;
-             const u8* copy_mapped_memory = mapped_memory + dst_offset;
--            device_memory.WriteBlockUnsafe(copy_device_addr, copy_mapped_memory, copy.size);
-+            WriteDownloadedMemory(cpu_written, copy_device_addr, copy_mapped_memory, copy.size);
-         }
-     } else {
-         const std::span<u8> immediate_buffer = ImmediateBuffer(largest_copy);
-         for (const BufferCopy& copy : copies) {
-             buffer.ImmediateDownload(copy.src_offset, immediate_buffer.subspan(0, copy.size));
-             const DAddr copy_device_addr = buffer.CpuAddr() + copy.src_offset;
--            device_memory.WriteBlockUnsafe(copy_device_addr, immediate_buffer.data(), copy.size);
-+            WriteDownloadedMemory(cpu_written, copy_device_addr, immediate_buffer.data(), copy.size);
-         }
-     }
- }
-@@ -2892,14 +2955,15 @@ void BufferCache<P>::TraceTablePointer(bool compute, size_t stage, size_t ssbo_i
+@@ -2937,14 +2958,15 @@ void BufferCache<P>::TraceTablePointer(bool compute, size_t stage, size_t ssbo_i
  
  template <class P>
  Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index, bool is_written,
@@ -1218,7 +1033,7 @@ index a248222d09..1a57aec0fa 100644
      const u64 next_qword = reads_size_word ? gpu_memory->Read<u64>(ssbo_addr + 8) : 0;
      const u32 alignment = runtime.GetStorageBufferAlignment();
      struct CachedBinding {
-@@ -2914,7 +2978,8 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
+@@ -2959,7 +2981,8 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
      constexpr size_t ways = 4;
      thread_local std::array<std::array<CachedBinding, ways>, 512> binding_cache{};
      const u32 flags =
@@ -1228,7 +1043,7 @@ index a248222d09..1a57aec0fa 100644
      const size_t owner = gpu_memory->GetID() + 1;
      const u64 serial = gpu_memory->MapSerial();
      auto& set = binding_cache[((gpu_addr ^ next_qword ^ flags) * 0x9E3779B97F4A7C15ULL) >> 55];
-@@ -2942,7 +3007,7 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
+@@ -2987,7 +3010,7 @@ Binding BufferCache<P>::StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index,
              // A native (Switch 2) compute program's pointer is bare: the word after it is another
              // parameter (a dimension, stride or texture handle), not an NVN buffer size. Taking it
              // as one bound Fortune's Weave's DLSS input features to 266 bytes and dropped the rest.
@@ -1238,29 +1053,10 @@ index a248222d09..1a57aec0fa 100644
              }
              const u32 packed_size = static_cast<u32>(next_qword);
 diff --git a/src/video_core/buffer_cache/buffer_cache_base.h b/src/video_core/buffer_cache/buffer_cache_base.h
-index e7971b444b..d7515382a8 100644
+index d60958cbd7..c90fc1d59e 100644
 --- a/src/video_core/buffer_cache/buffer_cache_base.h
 +++ b/src/video_core/buffer_cache/buffer_cache_base.h
-@@ -318,6 +318,18 @@ public:
-                                                           ObtainBufferOperation post_op);
-     void FlushCachedWrites();
- 
-+    /// Where the CPU writes into GPU-written memory that were collected but not applied yet
-+    /// (WriteMemory) come from: downloads must not write the GPU's older copy over them.
-+    using PendingCpuWrites = std::function<void(const std::function<void(DAddr, size_t)>&)>;
-+    void SetPendingCpuWrites(PendingCpuWrites source) {
-+        pending_cpu_writes = std::move(source);
-+    }
-+
-+    /// Takes CPU writes about to be applied one by one out of the GPU-written ranges first, so
-+    /// applying one doesn't download the GPU's copy over another (WriteMemory keeps the GPU data
-+    /// on the pages it writes).
-+    void ClaimCpuWrites(std::span<const std::pair<DAddr, u64>> ranges);
-+
-     /// Return true when there are uncommitted buffers to be downloaded
-     [[nodiscard]] bool HasUncommittedFlushes() const noexcept;
- 
-@@ -583,7 +595,8 @@ private:
+@@ -602,7 +602,8 @@ private:
  
      [[nodiscard]] Binding StorageBufferBinding(GPUVAddr ssbo_addr, u32 cbuf_index, bool is_written,
                                                 bool native_pointer = false,
@@ -1270,7 +1066,7 @@ index e7971b444b..d7515382a8 100644
  
      void TraceTablePointer(bool compute, size_t stage, size_t ssbo_index, u32 cbuf_index,
                             u32 cbuf_offset, u32 indirect_offset, GPUVAddr holder,
-@@ -611,6 +624,13 @@ private:
+@@ -630,6 +631,13 @@ private:
      /// Re-dirties repacked vertex buffers whose source data was written since they were bound.
      void RefreshRepackedVertexBuffers();
  
@@ -1284,14 +1080,6 @@ index e7971b444b..d7515382a8 100644
      void InlineMemoryImplementation(DAddr dest_address, size_t copy_size,
                                      std::span<const u8> inlined_buffer);
  
-@@ -727,6 +747,7 @@ private:
-     /// fence pops. A write to a range after a download was taken removes it from that download
-     /// (and every other pending one): its bytes are older than the write.
-     std::deque<Common::RangeSet<DAddr>> pending_download_ranges;
-+    PendingCpuWrites pending_cpu_writes;
-     std::optional<Async_Buffer> current_buffer;
- 
-     std::deque<Async_Buffer> async_buffers_death_ring;
 diff --git a/src/video_core/engines/kepler_compute.cpp b/src/video_core/engines/kepler_compute.cpp
 index 67d87a0abf..f4429ff379 100644
 --- a/src/video_core/engines/kepler_compute.cpp
@@ -1345,7 +1133,7 @@ index fb875798c8..ac8c88ae2f 100644
      MacroEngine& FrontMacroEngine(FrontState& state);
      std::span<u32> FrontMacroPositions(FrontState& state);
 diff --git a/src/video_core/engines/maxwell_3d.cpp b/src/video_core/engines/maxwell_3d.cpp
-index 86fb6d24ac..24b89491ad 100644
+index 879e774451..a920b06149 100644
 --- a/src/video_core/engines/maxwell_3d.cpp
 +++ b/src/video_core/engines/maxwell_3d.cpp
 @@ -472,6 +472,9 @@ void Maxwell3D::TraceFirstMethodWrite(u32 method, u32 argument) {
@@ -1399,7 +1187,7 @@ index 9247deff42..f894433a1c 100644
                      bool is_last_call, bool from_macro);
      void FrontRunMacro(Core::System& system, VideoCommon::GpuSplit& split, FrontState& state);
 diff --git a/src/video_core/gpu.cpp b/src/video_core/gpu.cpp
-index 2ec20d6da2..f537cb72cd 100644
+index f32fab777d..f537cb72cd 100644
 --- a/src/video_core/gpu.cpp
 +++ b/src/video_core/gpu.cpp
 @@ -20,6 +20,7 @@
@@ -1410,46 +1198,12 @@ index 2ec20d6da2..f537cb72cd 100644
  #include "core/hle/service/nvdrv/nvdata.h"
  #include "core/perf_stats.h"
  #include "video_core/cdma_pusher.h"
-@@ -109,10 +110,19 @@ struct GPU::Impl {
- 
-     /// Synchronizes CPU writes with Host GPU memory.
-     void InvalidateGPUCache() {
--        std::function<void(PAddr, size_t)> callback_writes([this](PAddr address, size_t size) {
--            renderer->ReadRasterizer()->OnCacheInvalidation(address, size);
--        });
-+        std::vector<std::pair<DAddr, u64>> writes;
-+        std::function<void(PAddr, size_t)> callback_writes(
-+            [&writes](PAddr address, size_t size) { writes.emplace_back(address, size); });
-         system.GatherGPUDirtyMemory(callback_writes);
-+        if (!writes.empty()) {
-+            renderer->ReadRasterizer()->OnCacheInvalidations(writes);
-+        }
-+    }
-+
-+    void ForEachPendingCpuWrite(const std::function<void(DAddr, size_t)>& callback) {
-+        for (auto& manager : system.GetGPUDirtyMemoryManager()) {
-+            manager.ForEachPending(callback);
-+        }
-     }
- 
-     /// Signal the ending of command list.
-@@ -431,6 +441,10 @@ bool GPU::HasPendingCPUWrites(DAddr addr, u64 size) {
-     return false;
- }
- 
-+void GPU::ForEachPendingCpuWrite(const std::function<void(DAddr, size_t)>& callback) {
-+    impl->ForEachPendingCpuWrite(callback);
-+}
-+
- void GPU::OnCommandListEnd() {
-     impl->OnCommandListEnd();
- }
 diff --git a/src/video_core/gpu.h b/src/video_core/gpu.h
-index 9084341e3f..d779c2514b 100644
+index 55988006d7..27a26b2c0b 100644
 --- a/src/video_core/gpu.h
 +++ b/src/video_core/gpu.h
-@@ -150,6 +150,10 @@ public:
-     void InvalidateGPUCache();
+@@ -153,6 +153,10 @@ public:
+     void ForEachPendingCpuWrite(const std::function<void(DAddr, size_t)>& callback);
      /// Returns true when guest CPU writes to the range are collected but not yet applied.
      [[nodiscard]] bool HasPendingCPUWrites(DAddr addr, u64 size);
 +
@@ -1603,7 +1357,7 @@ index 7f3756953b..6719565fb2 100644
      if (block) {
          state.cv.wait(lk, thread.get_stop_token(), [this, fence] {
 diff --git a/src/video_core/nx2.h b/src/video_core/nx2.h
-index fc0cfd0487..0324898106 100644
+index 7431fc5e37..d070270fbf 100644
 --- a/src/video_core/nx2.h
 +++ b/src/video_core/nx2.h
 @@ -34,12 +34,15 @@ inline void Nx2MarkGpuWritten(u64 device_address, u64 size) {
@@ -1821,10 +1575,10 @@ index 1cd92dcfe2..78b7e8a8ff 100644
          result |= streamer->HasUnsyncedQueries() || streamer->HasPendingSync();
          return result;
 diff --git a/src/video_core/query_cache/query_cache_base.h b/src/video_core/query_cache/query_cache_base.h
-index 5a60e42986..002717086b 100644
+index d4801cc140..a94473afc0 100644
 --- a/src/video_core/query_cache/query_cache_base.h
 +++ b/src/video_core/query_cache/query_cache_base.h
-@@ -172,6 +172,11 @@ protected:
+@@ -183,6 +183,11 @@ protected:
      void UnregisterPending();
  
      ::Common::unordered_map<u64, ::Common::unordered_map<u32, QueryLocation>> cached_queries;
@@ -1836,40 +1590,11 @@ index 5a60e42986..002717086b 100644
      std::mutex cache_mutex;
  
      struct QueryCacheBaseImpl;
-diff --git a/src/video_core/rasterizer_interface.h b/src/video_core/rasterizer_interface.h
-index 9cebc4f29f..b5199080f4 100644
---- a/src/video_core/rasterizer_interface.h
-+++ b/src/video_core/rasterizer_interface.h
-@@ -153,6 +153,13 @@ public:
-     /// Notify rasterizer that any caches of the specified region are desync with guest
-     virtual void OnCacheInvalidation(PAddr addr, u64 size) = 0;
- 
-+    /// OnCacheInvalidation for each of the CPU writes InvalidateGPUCache collected.
-+    virtual void OnCacheInvalidations(std::span<const std::pair<DAddr, u64>> ranges) {
-+        for (const auto& [addr, size] : ranges) {
-+            OnCacheInvalidation(addr, size);
-+        }
-+    }
-+
-     virtual bool TryCacheInvalidation(DAddr addr, u64 size) {
-         if (MustFlushRegion(addr, size, VideoCommon::CacheType::BufferCache)) return false;
-         OnCacheInvalidation(addr, size);
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-index 628dd72d97..21cd786b85 100644
+index f77bfaa599..8a0cf56565 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 +++ b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
-@@ -281,6 +281,10 @@ RasterizerVulkan::RasterizerVulkan(Core::Frontend::EmuWindow& emu_window_, Tegra
-       fence_manager(*this, gpu, texture_cache, buffer_cache, query_cache, device, scheduler),
-       frame_dump(device, memory_allocator, scheduler) {
-     scheduler.SetQueryCache(query_cache);
-+    buffer_cache.SetPendingCpuWrites(
-+        [this](const std::function<void(DAddr, size_t)>& callback) {
-+            gpu.ForEachPendingCpuWrite(callback);
-+        });
-     VideoCommon::GpuSplit::Get().SetIdleHook(
-         [](void* argument) { static_cast<Scheduler*>(argument)->FlushDeferred(); },
-         &scheduler);
-@@ -1707,6 +1711,16 @@ void RasterizerVulkan::OnCacheInvalidation(DAddr addr, u64 size) {
+@@ -1729,6 +1729,16 @@ void RasterizerVulkan::OnCacheInvalidation(DAddr addr, u64 size) {
      pipeline_cache.InvalidateRegion(addr, size);
  }
  
@@ -1886,7 +1611,7 @@ index 628dd72d97..21cd786b85 100644
  bool RasterizerVulkan::TryCacheInvalidation(DAddr addr, u64 size) {
      if (addr == 0 || size == 0) return true;
      {
-@@ -1764,7 +1778,16 @@ void RasterizerVulkan::SignalReference() {
+@@ -1786,7 +1796,16 @@ void RasterizerVulkan::SignalReference() {
  }
  
  void RasterizerVulkan::ReleaseFences(bool force) {
@@ -1902,19 +1627,7 @@ index 628dd72d97..21cd786b85 100644
 +    scheduler.AllowDeferFlush(allowed);
  }
  
- void RasterizerVulkan::FlushAndInvalidateRegion(DAddr addr, u64 size,
-diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.h b/src/video_core/renderer_vulkan/vk_rasterizer.h
-index c33b0ed3b3..78d4da287c 100644
---- a/src/video_core/renderer_vulkan/vk_rasterizer.h
-+++ b/src/video_core/renderer_vulkan/vk_rasterizer.h
-@@ -117,6 +117,7 @@ public:
-     void PrepareRegionWrite(DAddr addr, u64 size, VideoCommon::CacheType which) override;
-     void InnerInvalidation(std::span<const std::pair<DAddr, std::size_t>> sequences) override;
-     void OnCacheInvalidation(DAddr addr, u64 size) override;
-+    void OnCacheInvalidations(std::span<const std::pair<DAddr, u64>> ranges) override;
-     bool TryCacheInvalidation(DAddr addr, u64 size) override;
-     bool OnCPUWrite(DAddr addr, u64 size) override;
-     void InvalidateGPUCache() override;
+ void RasterizerVulkan::FlushQueryResults(DAddr addr, u64 size) {
 diff --git a/src/video_core/renderer_vulkan/vk_scheduler.cpp b/src/video_core/renderer_vulkan/vk_scheduler.cpp
 index 19bbcd9680..3564d57618 100644
 --- a/src/video_core/renderer_vulkan/vk_scheduler.cpp
@@ -1952,7 +1665,7 @@ index f97705184a..f988ce0685 100644
  
      std::chrono::steady_clock::duration frame_interval{};
 diff --git a/src/video_core/texture_cache/texture_cache.h b/src/video_core/texture_cache/texture_cache.h
-index 8ca5df2337..6bb99f0c52 100644
+index 917e5e688b..d14b760461 100644
 --- a/src/video_core/texture_cache/texture_cache.h
 +++ b/src/video_core/texture_cache/texture_cache.h
 @@ -272,6 +272,12 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
