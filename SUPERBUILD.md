@@ -45,9 +45,12 @@ a stock build as fallback.
   fix, 64 storage buffers and compute-pipeline rebuilds), #582/#583
   (HMMA on VK_KHR_cooperative_matrix, OoT +12-24% and RDNA4 41->60 fps),
   #587 (float16 for LSFG frame generation), #606
-  (NVIDIA DLSS Super Resolution for OoT) and #569 (task/mesh pipelines
-  through compute without VK_EXT_mesh_shader).
-  Those are not re-applied here.
+  (NVIDIA DLSS Super Resolution for OoT), #569 (task/mesh pipelines
+  through compute without VK_EXT_mesh_shader), #616 (OoT sharpening-network
+  bypass) and #574 (CI ccache). Those are not re-applied here.
+- PR #635 (OoT DLSS glow/particle history fix) is carried locally as two
+  commits; it is still open upstream. If zortos lands it, rebase and drop our
+  copy.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
