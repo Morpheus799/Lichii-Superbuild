@@ -38,10 +38,10 @@ index 8924448c27..3f26f65818 100644
  Add ids here when a report identifies a new game.
  
 diff --git a/CHANGELOG.md b/CHANGELOG.md
-index bc40878ce6..0c02c293ba 100644
+index bc40878ce6..81fc5b6899 100644
 --- a/CHANGELOG.md
 +++ b/CHANGELOG.md
-@@ -1,11 +1,64 @@
+@@ -1,11 +1,74 @@
  # Changelog
  
 -All notable changes to Eglantine are documented here. Each release's notes are taken from its
@@ -51,9 +51,20 @@ index bc40878ce6..0c02c293ba 100644
 +checksums.
  
 -## [Unreleased]
-+## 261106-v8
++## 261106-v9
  
 -## [0.1.0]
++- Base: `nx2` `9fa4a71` (unchanged from v8).
++- Adds reviewed `capy/*` fixes: NaN-defined shader min/max/clamp, QMD release
++  formats, framebuffer and stream-buffer limits, texture-cache OOM retries,
++  texture-cache debug stats off, and mesh-shader skip logging.
++- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
++  superbuild fix set.
++- Windows and Linux, standard and PGO.
+ 
+-- Initial release candidate
++## 261106-v8
++
 +- Base: `nx2` `9fa4a71` — upstream #149 (OoT split deadlock/FSR3/RED-SURED),
 +  #412 (GPU back bookkeeping), #414 (quad index growth), #413 (lock-free flush
 +  check), #410 (paired cbuf pointer), #215 (query waits), #197, #241, #398,
@@ -61,8 +72,7 @@ index bc40878ce6..0c02c293ba 100644
 +- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
 +  superbuild fix set.
 +- Windows and Linux, standard and PGO.
- 
--- Initial release candidate
++
 +## 261106-v7
 +
 +- Base: `nx2` `4c173bb7` — upstream #303 opt-in desktop compatibility reports
