@@ -25,7 +25,7 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `33acb0e1a00065749d190b5c0bede93e2cd54984` (2026-11-07).
+- Base commit: `d5494116902d15f9616efbe7668bbcec33a93f9c` (2026-11-07).
   The grass/foliage fix is now upstream as #551, so the 14-commit
   `capy/oot-hyrule-grass-fix` series is no longer carried.
 - Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
@@ -41,8 +41,10 @@ a stock build as fallback.
   thread poll), #440 (texture-cache OOM), #427 (framebuffer limits), #495
   (descriptor payload growth), #530 (Linux core pinning), #270 (present FPS
   limit), #365 (Overwolf hook disable), #484 (maximized window), #511 (MIME
-  install), #160 (ZBIC failure), #221 (IPSwitch lines) and #551 (OoT grass
-  fix, 64 storage buffers and compute-pipeline rebuilds).
+  install), #160 (ZBIC failure), #221 (IPSwitch lines), #551 (OoT grass
+  fix, 64 storage buffers and compute-pipeline rebuilds), #582/#583
+  (HMMA on VK_KHR_cooperative_matrix, OoT +12-24% and RDNA4 41->60 fps),
+  #587 (float16 for LSFG frame generation).
   Those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
@@ -157,6 +159,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout 33acb0e1a
+git checkout d5494116
 git apply patches/superbuild.patch
 ```
