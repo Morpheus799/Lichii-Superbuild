@@ -25,6 +25,18 @@ index 873b99bec2..258906d26f 100644
 +nx2_switches.local.txt
 +dist-local/
 +tools/superbuild/local/
+diff --git a/AGENTS.md b/AGENTS.md
+index 8924448c27..3f26f65818 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -27,6 +27,7 @@ Users report game bugs with Lichii logs (`eden_log.txt`, `eden_log.txt.old`). Ea
+ | 0400380020056000 | Raiders |
+ | 0400D1D02399A000 | The Duskbloods network test |
+ | 0400486024DEC000 | The Legend of Zelda: Ocarina of Time |
++| 0400245021D2C000 | Yoshi and the Mysterious Book |
+ 
+ Add ids here when a report identifies a new game.
+ 
 diff --git a/CHANGELOG.md b/CHANGELOG.md
 index bc40878ce6..0c02c293ba 100644
 --- a/CHANGELOG.md
@@ -499,6 +511,50 @@ index a80387be01..b58bca1efd 100644
              if (input.end) {
                  decoder->Drain(pictures);
              }
+diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
+index 6c09843b15..94b6c2d821 100644
+--- a/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
++++ b/src/shader_recompiler/backend/spirv/emit_spirv_floating_point.cpp
+@@ -17,12 +17,10 @@ Id Decorate(EmitContext& ctx, IR::Inst* inst, Id op) {
+     return op;
+ }
+ 
++// Maxwell's FMNMX and .SAT return the non-NaN operand (NaN saturates to 0). FMin/FMax/FClamp leave
++// NaN undefined and AMD's Windows compiler passes it through, so use the NaN-defined N variants.
+ Id Clamp(EmitContext& ctx, Id type, Id value, Id zero, Id one) {
+-    if (ctx.profile.has_broken_spirv_clamp) {
+-        return ctx.OpFMin(type, ctx.OpFMax(type, value, zero), one);
+-    } else {
+-        return ctx.OpFClamp(type, value, zero, one);
+-    }
++    return ctx.OpNMin(type, ctx.OpNMax(type, value, zero), one);
+ }
+ 
+ Id FPOrdNotEqual(EmitContext& ctx, Id lhs, Id rhs) {
+@@ -85,19 +83,19 @@ Id EmitFPFma64(EmitContext& ctx, IR::Inst* inst, Id a, Id b, Id c) {
+ }
+ 
+ Id EmitFPMax32(EmitContext& ctx, Id a, Id b) {
+-    return ctx.OpFMax(ctx.F32[1], a, b);
++    return ctx.OpNMax(ctx.F32[1], a, b);
+ }
+ 
+ Id EmitFPMax64(EmitContext& ctx, Id a, Id b) {
+-    return ctx.OpFMax(ctx.F64[1], a, b);
++    return ctx.OpNMax(ctx.F64[1], a, b);
+ }
+ 
+ Id EmitFPMin32(EmitContext& ctx, Id a, Id b) {
+-    return ctx.OpFMin(ctx.F32[1], a, b);
++    return ctx.OpNMin(ctx.F32[1], a, b);
+ }
+ 
+ Id EmitFPMin64(EmitContext& ctx, Id a, Id b) {
+-    return ctx.OpFMin(ctx.F64[1], a, b);
++    return ctx.OpNMin(ctx.F64[1], a, b);
+ }
+ 
+ Id EmitFPMul16(EmitContext& ctx, IR::Inst* inst, Id a, Id b) {
 diff --git a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp b/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
 index c8f3ae570d..1896614526 100644
 --- a/src/shader_recompiler/backend/spirv/emit_spirv_tensor.cpp
@@ -606,11 +662,36 @@ index c8f3ae570d..1896614526 100644
          std::array<Id, 2> packed;
          for (u32 row = 0; row < 2; ++row)
              packed[row] = ctx.OpPackHalf2x16(u32ty, ctx.OpCompositeConstruct(ctx.F32[2],
+diff --git a/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp b/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp
+index 6ded2bb329..8b5ee49d82 100644
+--- a/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp
++++ b/src/shader_recompiler/backend/spirv/spirv_emit_context.cpp
+@@ -364,10 +364,10 @@ Id CasFunction(EmitContext& ctx, Operation operation, Id value_type) {
+         result = ctx.OpFAdd(value_type, op_a, op_b);
+         break;
+     case Operation::FPMin:
+-        result = ctx.OpFMin(value_type, op_a, op_b);
++        result = ctx.OpNMin(value_type, op_a, op_b);
+         break;
+     case Operation::FPMax:
+-        result = ctx.OpFMax(value_type, op_a, op_b);
++        result = ctx.OpNMax(value_type, op_a, op_b);
+         break;
+     default:
+         break;
 diff --git a/src/tests/CMakeLists.txt b/src/tests/CMakeLists.txt
-index 543e9f0dab..c6f08a003f 100644
+index 543e9f0dab..3925208494 100644
 --- a/src/tests/CMakeLists.txt
 +++ b/src/tests/CMakeLists.txt
-@@ -68,6 +68,7 @@ add_executable(tests
+@@ -51,6 +51,7 @@ add_executable(tests
+     video_core/maxwell_permute_lod.cpp
+     video_core/submission_policy.cpp
+     video_core/framebuffer_clear_layers.cpp
++    video_core/framebuffer_limits.cpp
+     video_core/fire_emblem_upscale.cpp
+     video_core/dlss_contract.cpp
+     video_core/ampere_fast_fusion.cpp
+@@ -68,6 +69,7 @@ add_executable(tests
      video_core/gpu_written_pages.cpp
      video_core/command_writer.cpp
      video_core/split_fence_wait.cpp
@@ -618,6 +699,21 @@ index 543e9f0dab..c6f08a003f 100644
      video_core/command_snapshot_suspensions.cpp
      video_core/pending_maps.cpp
      video_core/maxwell_fast_method.cpp
+@@ -91,12 +93,14 @@ add_executable(tests
+     video_core/pipeline_cache_files.cpp
+     video_core/storage_binding_capacity.cpp
+     video_core/native_indirect_reset.cpp
++    video_core/native_qmd.cpp
+     video_core/gpu_command_safety.cpp
+     video_core/syncpoint_actions.cpp
+     video_core/nx2_video_render.cpp
+     video_core/ampere_matrix.cpp
+     video_core/spirv_software_matrix.cpp
+     video_core/spirv_builtin_capabilities.cpp
++    video_core/spirv_nan_safe_min_max.cpp
+     common/bit_field.cpp
+     common/cityhash.cpp
+     common/container_hash.cpp
 diff --git a/src/tests/common/game_presets.cpp b/src/tests/common/game_presets.cpp
 index 481f5c5e1d..48dd887b97 100644
 --- a/src/tests/common/game_presets.cpp
@@ -647,6 +743,208 @@ index 481f5c5e1d..48dd887b97 100644
 +    CHECK(settings->nvdec_emulation.GetValue() == Settings::NvdecEmulation::Gpu);
 +    CHECK(settings->async_presentation.GetValue());
 +    CHECK(settings->use_asynchronous_shaders.GetValue());
++}
+diff --git a/src/tests/video_core/framebuffer_limits.cpp b/src/tests/video_core/framebuffer_limits.cpp
+new file mode 100644
+index 0000000000..e92c9fddb7
+--- /dev/null
++++ b/src/tests/video_core/framebuffer_limits.cpp
+@@ -0,0 +1,39 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <catch2/catch_test_macros.hpp>
++
++#include "video_core/renderer_vulkan/framebuffer_limits.h"
++
++namespace {
++constexpr Vulkan::FramebufferSize APPLE_LIMITS{16384, 16384, 2048};
++} // Anonymous namespace
++
++TEST_CASE("Attachment-less framebuffers stay within the device limits",
++          "[video_core][framebuffer_limits]") {
++    const auto size = Vulkan::ClampFramebufferSize({32768, 32768, 1}, APPLE_LIMITS);
++    REQUIRE(size.width == 16384);
++    REQUIRE(size.height == 16384);
++    REQUIRE(size.layers == 1);
++}
++
++TEST_CASE("Framebuffer sizes within the device limits are unchanged",
++          "[video_core][framebuffer_limits]") {
++    const auto size = Vulkan::ClampFramebufferSize({1920, 1080, 6}, APPLE_LIMITS);
++    REQUIRE(size.width == 1920);
++    REQUIRE(size.height == 1080);
++    REQUIRE(size.layers == 6);
++}
++
++TEST_CASE("Framebuffer layers are clamped to the device limit",
++          "[video_core][framebuffer_limits]") {
++    const auto size = Vulkan::ClampFramebufferSize({64, 64, 4096}, APPLE_LIMITS);
++    REQUIRE(size.layers == 2048);
++}
++
++TEST_CASE("Framebuffers keep at least one pixel and one layer",
++          "[video_core][framebuffer_limits]") {
++    const auto size = Vulkan::ClampFramebufferSize({0, 0, 0}, APPLE_LIMITS);
++    REQUIRE(size.width == 1);
++    REQUIRE(size.height == 1);
++    REQUIRE(size.layers == 1);
++}
+diff --git a/src/tests/video_core/native_qmd.cpp b/src/tests/video_core/native_qmd.cpp
+new file mode 100644
+index 0000000000..560ae4b13f
+--- /dev/null
++++ b/src/tests/video_core/native_qmd.cpp
+@@ -0,0 +1,151 @@
++// SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <array>
++#include <cstdint>
++#include <map>
++#include <string_view>
++#include <vector>
++
++#include <catch2/catch_test_macros.hpp>
++
++#include "video_core/native_qmd.h"
++
++using Tegra::NativeQmdScheduler;
++using Address = NativeQmdScheduler::Address;
++using Descriptor = NativeQmdScheduler::Descriptor;
++using Word = NativeQmdScheduler::Word;
++
++namespace {
++
++constexpr Word Enable = 1U << 23;
++constexpr Word OneWord = 1U << 30;
++constexpr Word Reduction = 1U << 26;
++
++struct Released {
++    Address address;
++    Word payload;
++    Word flags;
++    bool operator==(const Released&) const = default;
++};
++
++struct Launch {
++    std::string_view error;
++    std::vector<Released> released;
++};
++
++Descriptor MakeQmd() {
++    Descriptor qmd{};
++    qmd[18] = 0x30;
++    return qmd;
++}
++
++void SetRelease(Descriptor& qmd, Word base, Word address, Word flags, Word payload) {
++    qmd[base] = address;
++    qmd[base + 1] = flags;
++    qmd[base + 2] = payload;
++}
++
++Launch Schedule(NativeQmdScheduler& scheduler, Address address, const std::map<Address, Descriptor>& memory) {
++    Launch launch;
++    launch.error = scheduler.Signal(
++        address, 3,
++        [&](Address qmd_address, Descriptor& descriptor) {
++            const auto it = memory.find(qmd_address);
++            if (it == memory.end()) return false;
++            descriptor = it->second;
++            return true;
++        },
++        [&](Address destination, Word payload, Word flags) {
++            launch.released.push_back({destination, payload, flags});
++            return true;
++        });
++    return launch;
++}
++
++} // Anonymous namespace
++
++TEST_CASE("An undecodable QMD release slot keeps the other releases and the dependent QMD",
++          "[video_core][native_qmd]") {
++    // Orbitals (#400): both channels wait on 0x1b18871010, released by slot 0 of this QMD.
++    constexpr Address first = 0x1b19635400;
++    constexpr Address second = 0x1b19635500;
++    auto qmd = MakeQmd();
++    SetRelease(qmd, 24, 0x18871010, 0x4088001b, 6);
++    SetRelease(qmd, 52, 0x18871020, Enable | OneWord | (1U << 29) | 0x1b, 7);
++    qmd[15] = Word(second >> 8);
++    qmd[16] = 1 | (1U << 1);
++    auto dependent = MakeQmd();
++    SetRelease(dependent, 24, 0x18871030, Enable | OneWord | 0x1b, 8);
++
++    NativeQmdScheduler scheduler;
++    const auto launch = Schedule(scheduler, first, {{first, qmd}, {second, dependent}});
++    REQUIRE(launch.error == "unsupported QMD release format");
++    REQUIRE(launch.released == std::vector<Released>{
++                                   {0x1b18871010, 6, 0x4088001b},
++                                   {0x1b18871030, 8, Enable | OneWord | 0x1b},
++                               });
++}
++
++TEST_CASE("Timestamped, reduction, signed and interrupting QMD releases are performed",
++          "[video_core][native_qmd]") {
++    constexpr Address address = 0x20000;
++    constexpr Word four_words = Enable;
++    constexpr Word increment = Enable | OneWord | Reduction | (3U << 20);
++    constexpr Word signed_max_trap = Enable | OneWord | Reduction | (1U << 24) | (2U << 20) | (1U << 27);
++    auto qmd = MakeQmd();
++    SetRelease(qmd, 24, 0x1000, four_words, 1);
++    SetRelease(qmd, 28, 0x1010, increment, 2);
++    SetRelease(qmd, 52, 0x1020, signed_max_trap, 3);
++
++    NativeQmdScheduler scheduler;
++    const auto launch = Schedule(scheduler, address, {{address, qmd}});
++    REQUIRE(launch.error.empty());
++    REQUIRE(launch.released == std::vector<Released>{
++                                   {0x1000, 1, four_words},
++                                   {0x1010, 2, increment},
++                                   {0x1020, 3, signed_max_trap},
++                               });
++}
++
++TEST_CASE("Skipped QMD release slots are reported with their raw words", "[video_core][native_qmd]") {
++    constexpr Address address = 0x30000;
++    constexpr Word two_words = Enable | (2U << 30);
++    constexpr Word reserved_size = Enable | (3U << 30);
++    constexpr Word timestamped_reduction = Enable | Reduction;
++    auto qmd = MakeQmd();
++    SetRelease(qmd, 24, 0x2000, two_words, 1);
++    SetRelease(qmd, 28, 0x2010, reserved_size, 2);
++    SetRelease(qmd, 52, 0x2020, timestamped_reduction, 3);
++
++    NativeQmdScheduler scheduler;
++    std::vector<std::array<Word, 6>> skipped;
++    scheduler.skipped_release = [&](Address qmd_address, std::size_t slot, std::span<const Word, 4> words) {
++        skipped.push_back({Word(qmd_address), Word(slot), words[0], words[1], words[2], words[3]});
++    };
++    const auto launch = Schedule(scheduler, address, {{address, qmd}});
++    REQUIRE(launch.error == "unsupported QMD release format");
++    REQUIRE(launch.released.empty());
++    REQUIRE(skipped == std::vector<std::array<Word, 6>>{
++                           {Word(address), 0, 0x2000, two_words, 1, 0},
++                           {Word(address), 1, 0x2010, reserved_size, 2, 0},
++                           {Word(address), 2, 0x2020, timestamped_reduction, 3, 0},
++                       });
++}
++
++TEST_CASE("Semaphore reductions follow the documented ops", "[video_core][native_qmd]") {
++    using Tegra::ReduceSemaphore;
++    REQUIRE(ReduceSemaphore(0, false, 5, 3) == 8);
++    REQUIRE(ReduceSemaphore(1, false, 0xffffffff, 1) == 1);
++    REQUIRE(ReduceSemaphore(1, true, 0xffffffff, 1) == 0xffffffff);
++    REQUIRE(ReduceSemaphore(2, false, 0xffffffff, 1) == 0xffffffff);
++    REQUIRE(ReduceSemaphore(2, true, 0xffffffff, 1) == 1);
++    REQUIRE(ReduceSemaphore(3, false, 4, 5) == 5);
++    REQUIRE(ReduceSemaphore(3, false, 5, 5) == 0);
++    REQUIRE(ReduceSemaphore(4, false, 3, 5) == 2);
++    REQUIRE(ReduceSemaphore(4, false, 0, 5) == 5);
++    REQUIRE(ReduceSemaphore(4, false, 7, 5) == 5);
++    REQUIRE(ReduceSemaphore(5, false, 0b1100, 0b1010) == 0b1000);
++    REQUIRE(ReduceSemaphore(6, false, 0b1100, 0b1010) == 0b1110);
++    REQUIRE(ReduceSemaphore(7, false, 0b1100, 0b1010) == 0b0110);
 +}
 diff --git a/src/tests/video_core/nx2_written_pages.cpp b/src/tests/video_core/nx2_written_pages.cpp
 new file mode 100644
@@ -758,6 +1056,156 @@ index 0000000000..45c283667c
 +        writers.clear();
 +        pages.Check();
 +    }
++}
+diff --git a/src/tests/video_core/spirv_nan_safe_min_max.cpp b/src/tests/video_core/spirv_nan_safe_min_max.cpp
+new file mode 100644
+index 0000000000..bff259642a
+--- /dev/null
++++ b/src/tests/video_core/spirv_nan_safe_min_max.cpp
+@@ -0,0 +1,144 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#include <cstring>
++#include <string_view>
++#include <tuple>
++#include <vector>
++
++#include <catch2/catch_test_macros.hpp>
++
++#include "shader_recompiler/backend/spirv/emit_spirv.h"
++#include "shader_recompiler/frontend/ir/ir_emitter.h"
++#include "shader_recompiler/frontend/ir/program.h"
++#include "shader_recompiler/object_pool.h"
++
++namespace {
++namespace IR = Shader::IR;
++
++constexpr u32 OpExtInstImport = 11;
++constexpr u32 OpExtInst = 12;
++constexpr u32 GLSLstd450FMin = 37;
++constexpr u32 GLSLstd450FMax = 40;
++constexpr u32 GLSLstd450FClamp = 43;
++constexpr u32 GLSLstd450NMin = 79;
++constexpr u32 GLSLstd450NMax = 80;
++constexpr u32 GLSLstd450NClamp = 81;
++
++struct GlslOpCounts {
++    size_t fmin{};
++    size_t fmax{};
++    size_t fclamp{};
++    size_t nmin{};
++    size_t nmax{};
++    size_t nclamp{};
++};
++
++GlslOpCounts CountGlslOps(const std::vector<u32>& code) {
++    constexpr std::string_view glsl{"GLSL.std.450"};
++    u32 glsl_set{};
++    GlslOpCounts counts;
++    for (size_t offset = 5; offset < code.size();) {
++        const u32 word_count = code[offset] >> 16;
++        REQUIRE(word_count > 0);
++        REQUIRE(offset + word_count <= code.size());
++        const u32 opcode = code[offset] & 0xffff;
++        if (opcode == OpExtInstImport && word_count >= 3) {
++            const auto* name = reinterpret_cast<const char*>(&code[offset + 2]);
++            if (std::strncmp(name, glsl.data(), glsl.size()) == 0) {
++                glsl_set = code[offset + 1];
++            }
++        } else if (opcode == OpExtInst && word_count >= 5 && code[offset + 3] == glsl_set) {
++            switch (code[offset + 4]) {
++            case GLSLstd450FMin:
++                ++counts.fmin;
++                break;
++            case GLSLstd450FMax:
++                ++counts.fmax;
++                break;
++            case GLSLstd450FClamp:
++                ++counts.fclamp;
++                break;
++            case GLSLstd450NMin:
++                ++counts.nmin;
++                break;
++            case GLSLstd450NMax:
++                ++counts.nmax;
++                break;
++            case GLSLstd450NClamp:
++                ++counts.nclamp;
++                break;
++            default:
++                break;
++            }
++        }
++        offset += word_count;
++    }
++    return counts;
++}
++
++struct Fixture {
++    Shader::ObjectPool<IR::Inst> pool;
++    IR::Block block{pool};
++    IR::Program program;
++    Shader::Profile profile{};
++
++    Fixture() {
++        program.stage = Shader::Stage::Compute;
++        program.workgroup_size = {1, 1, 1};
++        program.blocks = {&block};
++        program.post_order_blocks = {&block};
++        program.syntax_list = {{{.block = &block}, IR::AbstractSyntaxNode::Type::Block},
++                               {{}, IR::AbstractSyntaxNode::Type::Return}};
++        profile.supported_spirv = 0x00010300;
++    }
++
++    std::vector<u32> Emit() {
++        return Shader::Backend::SPIRV::EmitSPIRV(profile, program);
++    }
++};
++
++void CheckNaNDefined(const GlslOpCounts& counts, size_t nmin, size_t nmax) {
++    CHECK(counts.fmin == 0);
++    CHECK(counts.fmax == 0);
++    CHECK(counts.fclamp == 0);
++    CHECK(counts.nclamp == 0);
++    CHECK(counts.nmin == nmin);
++    CHECK(counts.nmax == nmax);
++}
++} // Anonymous namespace
++
++TEST_CASE("SPIR-V float min, max and clamp emit NaN-defined instructions",
++          "[video_core][spirv][nan_safe_min_max]") {
++    for (const bool broken_clamp : {false, true}) {
++        CAPTURE(broken_clamp);
++        Fixture fixture;
++        fixture.profile.has_broken_spirv_clamp = broken_clamp;
++        fixture.program.info.uses_fp64 = true;
++        fixture.program.info.uses_local_invocation_id = true;
++        IR::IREmitter ir{fixture.block};
++        const IR::F32 a{ir.BitCast<IR::F32>(ir.LocalInvocationIdX())};
++        const IR::F32 b{ir.BitCast<IR::F32>(ir.LocalInvocationIdY())};
++        const IR::F32 c{ir.BitCast<IR::F32>(ir.LocalInvocationIdZ())};
++        const IR::F64 d{ir.PackDouble2x32(
++            ir.CompositeConstruct(ir.LocalInvocationIdX(), ir.LocalInvocationIdY()))};
++        const IR::F64 e{ir.PackDouble2x32(
++            ir.CompositeConstruct(ir.LocalInvocationIdY(), ir.LocalInvocationIdZ()))};
++        std::ignore = ir.FPMin(a, b);
++        std::ignore = ir.FPMax(a, b);
++        std::ignore = ir.FPMin(d, e);
++        std::ignore = ir.FPMax(d, e);
++        std::ignore = ir.FPSaturate(a);
++        std::ignore = ir.FPClamp(a, b, c);
++        // Min32 and min64, plus the min half of one saturate and one clamp; likewise for max.
++        CheckNaNDefined(CountGlslOps(fixture.Emit()), 4, 4);
++    }
++}
++
++TEST_CASE("SPIR-V float atomic min and max loops emit NaN-defined instructions",
++          "[video_core][spirv][nan_safe_min_max]") {
++    Fixture fixture;
++    fixture.program.info.storage_buffers_descriptors = {{0, 0, 1, true}};
++    fixture.program.info.uses_atomic_f32x2_min = true;
++    fixture.program.info.uses_atomic_f32x2_max = true;
++    CheckNaNDefined(CountGlslOps(fixture.Emit()), 1, 1);
 +}
 diff --git a/src/tests/video_core/spirv_software_matrix.cpp b/src/tests/video_core/spirv_software_matrix.cpp
 index 918fcf1c0e..e9040af774 100644
@@ -956,6 +1404,18 @@ index 918fcf1c0e..e9040af774 100644
      }
  }
  
+diff --git a/src/video_core/CMakeLists.txt b/src/video_core/CMakeLists.txt
+index 7b24c75929..f553a9a974 100644
+--- a/src/video_core/CMakeLists.txt
++++ b/src/video_core/CMakeLists.txt
+@@ -166,6 +166,7 @@ add_library(video_core STATIC
+     renderer_vulkan/fixed_pipeline_state.cpp
+     renderer_vulkan/fixed_pipeline_state.h
+     renderer_vulkan/framebuffer_clear_layers.h
++    renderer_vulkan/framebuffer_limits.h
+     renderer_vulkan/maxwell_to_vk.cpp
+     renderer_vulkan/maxwell_to_vk.h
+     renderer_vulkan/pipeline_build.h
 diff --git a/src/video_core/buffer_cache/buffer_cache.h b/src/video_core/buffer_cache/buffer_cache.h
 index 7327240629..13458f08bd 100644
 --- a/src/video_core/buffer_cache/buffer_cache.h
@@ -1078,10 +1538,75 @@ index d60958cbd7..65e4d3a9a4 100644
      void TraceTablePointer(bool compute, size_t stage, size_t ssbo_index, u32 cbuf_index,
                             u32 cbuf_offset, u32 indirect_offset, GPUVAddr holder,
 diff --git a/src/video_core/engines/kepler_compute.cpp b/src/video_core/engines/kepler_compute.cpp
-index 67d87a0abf..f4429ff379 100644
+index 67d87a0abf..be57c09e25 100644
 --- a/src/video_core/engines/kepler_compute.cpp
 +++ b/src/video_core/engines/kepler_compute.cpp
-@@ -445,6 +445,9 @@ bool KeplerCompute::ProcessNativeMethod(Core::System& system, u32 method, u32 ar
+@@ -50,6 +50,12 @@ KeplerCompute::KeplerCompute(MemoryManager& memory_manager_)
+                      fmt::ptr(this), memory_manager.GetID());
+         };
+     }
++    native_qmd.skipped_release = [](u64 address, std::size_t slot, std::span<const u32, 4> words) {
++        static std::unordered_set<u32> logged;
++        if (!logged.insert(words[1]).second) return;
++        LOG_WARNING(HW_GPU, "Native QMD {:#x} skipped release slot {} with unsupported format, words={:08x}",
++                    address, slot, fmt::join(words, ","));
++    };
+     execution_mask.reset();
+     execution_mask[KEPLER_COMPUTE_REG_INDEX(exec_upload)] = true;
+     execution_mask[KEPLER_COMPUTE_REG_INDEX(data_upload)] = true;
+@@ -107,16 +113,8 @@ void KeplerCompute::ProcessNativeReportSemaphore(u32 argument) {
+     if ((argument >> 3) & 1) {
+         const u32 reduction = (argument >> 9) & 7;
+         rasterizer->SignalFence([this, address, payload, reduction] {
+-            const u32 old_value = memory_manager.Read<u32>(address);
+-            const u32 value = reduction == 0   ? old_value + payload
+-                              : reduction == 1 ? (std::min)(old_value, payload)
+-                              : reduction == 2 ? (std::max)(old_value, payload)
+-                              : reduction == 3 ? (old_value >= payload ? 0 : old_value + 1)
+-                              : reduction == 4 ? (old_value == 0 || old_value > payload ? payload : old_value - 1)
+-                              : reduction == 5 ? (old_value & payload)
+-                              : reduction == 6 ? (old_value | payload)
+-                                               : (old_value ^ payload);
+-            memory_manager.Write<u32>(address, value);
++            memory_manager.Write<u32>(address, ReduceSemaphore(reduction, false,
++                                                               memory_manager.Read<u32>(address), payload));
+         });
+         return;
+     }
+@@ -366,10 +364,12 @@ bool KeplerCompute::ProcessNativeMethod(Core::System& system, u32 method, u32 ar
+                 return true;
+             },
+             [&](u64 address, u32 payload, u32 flags) {
+-                if (!memory_manager.IsFullyMappedRange(address, sizeof(payload))) return false;
++                const bool four_words = (flags >> 30) == 0;
++                if (!memory_manager.IsFullyMappedRange(address, four_words ? 16 : sizeof(payload))) return false;
+                 if (flags & (1U << 26)) {
+-                    rasterizer->SignalFence([this, address, payload] {
+-                        const u32 value = memory_manager.Read<u32>(address) + payload;
++                    rasterizer->SignalFence([this, address, payload, flags] {
++                        const u32 value = ReduceSemaphore((flags >> 20) & 7, (flags >> 24) & 1,
++                                                          memory_manager.Read<u32>(address), payload);
+                         memory_manager.Write<u32>(address, value);
+                         if (const auto device = memory_manager.GpuToCpuAddress(address)) {
+                             Tegra::Nx2SemaphoreWaiters::Get().OnWrite(*device, value);
+@@ -379,11 +379,15 @@ bool KeplerCompute::ProcessNativeMethod(Core::System& system, u32 method, u32 ar
+                             return text ? u64{std::strtoull(text, nullptr, 16)} : u64{};
+                         }();
+                         if (watch != 0 && (address & ~u64{0xf}) == watch) {
+-                            LOG_INFO(HW_GPU, "Semaphore watch: QMD release add {:#x} -> {:#x}", address, value);
++                            LOG_INFO(HW_GPU, "Semaphore watch: QMD release reduction {:#x} -> {:#x}", address, value);
+                         }
+                         VideoCommon::TraceNativeQuery(1, memory_manager.GetID(), address,
+                             memory_manager.GpuToCpuAddress(address).value_or(0), 0, value, 1U << 26);
+                     });
++                } else if (four_words) {
++                    rasterizer->Query(address, VideoCommon::QueryType::Payload,
++                        VideoCommon::QueryPropertiesFlags::IsAFence | VideoCommon::QueryPropertiesFlags::HasTimeout,
++                        payload, 0);
+                 } else if (flags & (1U << 19)) {
+                     // NVN2 tracks QMD completion with a max release (bit 19) into a word other
+                     // releases also advance: a plain write would move it backwards and leave
+@@ -445,6 +449,9 @@ bool KeplerCompute::ProcessNativeMethod(Core::System& system, u32 method, u32 ar
  }
  
  void KeplerCompute::CallMethod(Core::System& system, u32 method, u32 method_argument, bool is_last_call) {
@@ -1091,7 +1616,7 @@ index 67d87a0abf..f4429ff379 100644
      if (native_mode) {
          // Most of the compute class's register writes (QMD fields replayed by its macros for
          // each of thousands of dispatches a second) only store the value: ~4% of title 1's GPU
-@@ -1130,6 +1133,17 @@ KeplerCompute::FrontState& KeplerCompute::Front(VideoCommon::GpuSplit& split) {
+@@ -1130,6 +1137,17 @@ KeplerCompute::FrontState& KeplerCompute::Front(VideoCommon::GpuSplit& split) {
      return *front;
  }
  
@@ -1350,6 +1875,109 @@ index 7f3756953b..6719565fb2 100644
  
      if (block) {
          state.cv.wait(lk, thread.get_stop_token(), [this, fence] {
+diff --git a/src/video_core/native_qmd.h b/src/video_core/native_qmd.h
+index 924267e406..f32afb363b 100644
+--- a/src/video_core/native_qmd.h
++++ b/src/video_core/native_qmd.h
+@@ -1,15 +1,35 @@
+ // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
+ // SPDX-License-Identifier: GPL-3.0-or-later
+ #pragma once
++#include <algorithm>
+ #include <array>
+ #include <cstdint>
+ #include <functional>
++#include <span>
+ #include <string_view>
+ #include <type_traits>
+ #include <unordered_map>
+ 
+ namespace Tegra {
+ 
++// Semaphore reduction ops (ADD, MIN, MAX, INC, DEC, AND, OR, XOR) shared by QMD releases and the
++// compute report semaphore.
++inline std::uint32_t ReduceSemaphore(std::uint32_t op, bool is_signed, std::uint32_t value,
++                                     std::uint32_t payload) {
++    switch (op) {
++    case 0: return value + payload;
++    case 1: return is_signed ? std::uint32_t((std::min)(std::int32_t(value), std::int32_t(payload)))
++                             : (std::min)(value, payload);
++    case 2: return is_signed ? std::uint32_t((std::max)(std::int32_t(value), std::int32_t(payload)))
++                             : (std::max)(value, payload);
++    case 3: return value >= payload ? 0 : value + 1;
++    case 4: return value == 0 || value > payload ? payload : value - 1;
++    case 5: return value & payload;
++    case 6: return value | payload;
++    default: return value ^ payload;
++    }
++}
++
+ // Native QMD 3.0 dependency scheduling; nonempty grids require a dispatch backend.
+ class NativeQmdScheduler {
+ public:
+@@ -19,6 +39,17 @@ public:
+     struct RejectShaderDispatch { bool operator()(const Descriptor&) const { return false; } };
+     // Optional diagnostics: called with "load"/"count"/"defer"/"run" events.
+     std::function<void(std::string_view, Address, std::int32_t)> trace;
++    // Optional diagnostics: called with the QMD, slot and raw words of a release it skips.
++    std::function<void(Address, std::size_t, std::span<const Word, 4>)> skipped_release;
++    // QMD V03_00 release flags: 7:0 address high, 19 membar, 22:20 reduction op, 23 enable,
++    // 25:24 reduction format, 26 reduction enable, 28:27 non-blocking interrupt, 29 64-bit
++    // payload, 31:30 structure size (0 four words with timestamp, 1 one word, 2 two words).
++    static bool IsDecodableRelease(Word flags) {
++        const Word size = flags >> 30;
++        if (flags & (1U << 29)) return false;
++        if (flags & (1U << 26)) return size == 1 && ((flags >> 24) & 3) < 2;
++        return size <= 1;
++    }
+     template <typename Read, typename Release>
+     std::string_view Signal(Address address, Word argument, Read read, Release release) {
+         return Signal(address, argument, read, release, RejectShaderDispatch{});
+@@ -78,35 +109,24 @@ public:
+             if (!read(request.address, state.descriptor)) return "unmapped QMD";
+             const auto qmd = state.descriptor;
+             if ((qmd[18] & 0xff) != 0x30 || (qmd[4] & 0x100)) return "unsupported QMD version or queue";
+-            // Validate the release slots before making any visible.
+-            for (const Word base : ReleaseSlots) {
+-                const Word flags = qmd[base + 1];
+-                if (!(flags & (1U << 23))) continue;
+-                const bool add = (flags & (1U << 26)) != 0;
+-                if ((flags & (0x3bU << 24)) || (flags >> 30) != 1 ||
+-                    (add && (flags & (7U << 20)))) return "unsupported QMD release format";
+-                if (add) {
+-                    if constexpr (!std::is_invocable_r_v<bool, Release, Address, Word, Word>)
+-                        return "unsupported QMD reduction callback";
+-                }
+-            }
+             // A program Eden can't run is skipped, but the QMD still completes: its releases
+             // are what other queues and the CPU wait on (the console never fails a launch).
+             const bool dispatched = !(qmd[12] && (qmd[13] & 0xffff) && (qmd[14] & 0xffff)) || dispatch(qmd);
+             if (!dispatched) error = "native shader dispatch required";
+             if (trace) trace("run", request.address, dispatched ? 1 : 0);
+             state.completed = true;
+-            for (const Word base : ReleaseSlots) {
++            for (std::size_t slot = 0; slot < ReleaseSlots.size(); ++slot) {
++                const Word base = ReleaseSlots[slot];
+                 const Word flags = qmd[base + 1];
+                 if (!(flags & (1U << 23))) continue;
+-                const Address destination = (Address{flags & 0xff} << 32) | qmd[base];
+-                bool released{};
+-                if constexpr (std::is_invocable_r_v<bool, Release, Address, Word, Word>) {
+-                    released = release(destination, qmd[base + 2], flags);
+-                } else {
+-                    released = release(destination, qmd[base + 2]);
++                // Skip only this slot: the others are what other queues and the CPU wait on.
++                if (!IsDecodableRelease(flags)) {
++                    if (skipped_release) skipped_release(request.address, slot, std::span<const Word, 4>{&qmd[base], 4});
++                    if (error.empty()) error = "unsupported QMD release format";
++                    continue;
+                 }
+-                if (!released) return "unmapped QMD release";
++                const Address destination = (Address{flags & 0xff} << 32) | qmd[base];
++                if (!release(destination, qmd[base + 2], flags)) return "unmapped QMD release";
+             }
+             if (qmd[16] & 1) {
+                 const Word action = (qmd[16] >> 1) & 7;
 diff --git a/src/video_core/nx2.h b/src/video_core/nx2.h
 index 7431fc5e37..d070270fbf 100644
 --- a/src/video_core/nx2.h
@@ -1397,6 +2025,19 @@ index 0000000000..0d2523c8af
 +}
 +
 +} // namespace VideoCommon
+diff --git a/src/video_core/pipeline_cache_files.h b/src/video_core/pipeline_cache_files.h
+index e2657de05f..10cd6167b8 100644
+--- a/src/video_core/pipeline_cache_files.h
++++ b/src/video_core/pipeline_cache_files.h
+@@ -14,7 +14,7 @@
+ namespace VideoCommon {
+ 
+ inline constexpr u32 OpenGLPipelineCacheVersion = 48;
+-inline constexpr u32 VulkanPipelineCacheVersion = 53;
++inline constexpr u32 VulkanPipelineCacheVersion = 54;
+ 
+ // Official Eglantine (cache version 18 at c0cb3325) and this fork (a different version) both
+ // used <shader dir>/<title>/vulkan.bin and vulkan_pipelines.bin. Each build deletes a file
 diff --git a/src/video_core/query_cache/query_cache.h b/src/video_core/query_cache/query_cache.h
 index 1cd92dcfe2..78b7e8a8ff 100644
 --- a/src/video_core/query_cache/query_cache.h
@@ -1584,6 +2225,58 @@ index d4801cc140..a94473afc0 100644
      std::mutex cache_mutex;
  
      struct QueryCacheBaseImpl;
+diff --git a/src/video_core/renderer_vulkan/framebuffer_limits.h b/src/video_core/renderer_vulkan/framebuffer_limits.h
+new file mode 100644
+index 0000000000..d11cf19868
+--- /dev/null
++++ b/src/video_core/renderer_vulkan/framebuffer_limits.h
+@@ -0,0 +1,27 @@
++// SPDX-License-Identifier: GPL-3.0-or-later
++
++#pragma once
++
++#include <algorithm>
++
++#include "common/common_types.h"
++
++namespace Vulkan {
++
++struct FramebufferSize {
++    u32 width;
++    u32 height;
++    u32 layers;
++};
++
++// Draws without attachments take their size from the surface clip, which games leave at
++// 32768x32768. Apple GPUs allow 16384, and Metal loses the device on a larger framebuffer.
++constexpr FramebufferSize ClampFramebufferSize(FramebufferSize size, FramebufferSize max) {
++    return {
++        (std::max)(1U, (std::min)(size.width, max.width)),
++        (std::max)(1U, (std::min)(size.height, max.height)),
++        (std::max)(1U, (std::min)(size.layers, max.layers)),
++    };
++}
++
++} // namespace Vulkan
+diff --git a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+index 095bd4c1e6..b7207d9395 100644
+--- a/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_pipeline_cache.cpp
+@@ -1278,6 +1278,14 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
+         if ((env.ShaderStage() == Shader::Stage::Task ||
+              env.ShaderStage() == Shader::Stage::Mesh) &&
+             !device.IsExtMeshShaderSupported()) {
++            static std::atomic<bool> logged{};
++            if (!logged.exchange(true, std::memory_order_relaxed)) {
++                LOG_WARNING(Render_Vulkan,
++                            "{} has no VK_EXT_mesh_shader: pipelines with task/mesh shaders are "
++                            "skipped, so the geometry they draw (such as foliage and props) will "
++                            "be missing",
++                            device.GetModelName());
++            }
+             return nullptr;
+         }
+ 
 diff --git a/src/video_core/renderer_vulkan/vk_rasterizer.cpp b/src/video_core/renderer_vulkan/vk_rasterizer.cpp
 index f77bfaa599..1b30a87db4 100644
 --- a/src/video_core/renderer_vulkan/vk_rasterizer.cpp
@@ -1641,11 +2334,242 @@ index f97705184a..f988ce0685 100644
      std::jthread worker_thread;
  
      std::chrono::steady_clock::duration frame_interval{};
+diff --git a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+index 98787b9add..f2bb0ee10b 100644
+--- a/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
++++ b/src/video_core/renderer_vulkan/vk_staging_buffer_pool.cpp
+@@ -40,6 +40,12 @@ constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 128_MiB;
+ constexpr VkDeviceSize MAX_STREAM_BUFFER_SIZE = 128_MiB;
+ #endif
+ 
++// Unused space after the end of the stream buffer. Constant buffers are bound from it and the
++// shaders declare each one at its full 64 KiB, so Metal checks 64 KiB from the binding offset
++// against the end of the buffer ("argument c3[0] ... has space for 26624 bytes, but argument has a
++// length(65536)"). The tail is never handed out, so every binding has the full 64 KiB behind it.
++constexpr VkDeviceSize STREAM_BUFFER_TAIL = 64_KiB;
++
+ size_t GetStreamBufferSize(const Device& device) {
+     if (!device.HasDebuggingToolAttached()) {
+         if (device.IsIntegrated()) {
+@@ -88,7 +94,7 @@ StagingBufferPool::StagingBufferPool(const Device& device_, MemoryAllocator& mem
+         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+         .pNext = nullptr,
+         .flags = 0,
+-        .size = stream_buffer_size,
++        .size = stream_buffer_size + STREAM_BUFFER_TAIL,
+         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT |
+                  VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+diff --git a/src/video_core/renderer_vulkan/vk_texture_cache.cpp b/src/video_core/renderer_vulkan/vk_texture_cache.cpp
+index 65f84789f4..c96b2b27e7 100644
+--- a/src/video_core/renderer_vulkan/vk_texture_cache.cpp
++++ b/src/video_core/renderer_vulkan/vk_texture_cache.cpp
+@@ -33,6 +33,7 @@
+ 
+ #include "video_core/engines/fermi_2d.h"
+ #include "video_core/renderer_vulkan/blit_image.h"
++#include "video_core/renderer_vulkan/framebuffer_limits.h"
+ #include "video_core/renderer_vulkan/maxwell_to_vk.h"
+ #include "video_core/renderer_vulkan/vk_compute_pass.h"
+ #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
+@@ -453,7 +454,8 @@ constexpr std::array<VkFormat, 2> OpaqueAstcViewFormats{VK_FORMAT_BC1_RGBA_UNORM
+ [[nodiscard]] vk::Image MakeImage(const Device& device, const MemoryAllocator& allocator,
+                                   const ImageInfo& info, std::span<const VkFormat> view_formats,
+                                   std::optional<VkFormat> format_override = {},
+-                                  bool unbacked = false, bool aliased = false) {
++                                  bool unbacked = false, bool aliased = false,
++                                  bool may_fail = false) {
+     if (info.type == ImageType::Buffer) {
+         return vk::Image{};
+     }
+@@ -486,7 +488,7 @@ constexpr std::array<VkFormat, 2> OpaqueAstcViewFormats{VK_FORMAT_BC1_RGBA_UNORM
+             return image;
+         }
+     }
+-    return allocator.CreateImage(image_ci);
++    return may_fail ? allocator.TryCreateImage(image_ci) : allocator.CreateImage(image_ci);
+ }
+ 
+ [[nodiscard]] vk::ImageView MakeStorageView(const vk::Device& device, u32 level, VkImage image,
+@@ -2899,8 +2901,12 @@ Image::Image(TextureCacheRuntime& runtime_, const ImageInfo& info_, GPUVAddr gpu
+                                    UsesSparseTiles(runtime_.device, info, gpu_addr_) ||
+                                    IsUnwrittenSparse(runtime_.device, info, gpu_addr_),
+                                UsesSparseTiles(runtime_.device, info, gpu_addr_) &&
+-                                   SparseTilesModeOf(runtime_.device) == SparseTilesMode::Aliased)),
++                                   SparseTilesModeOf(runtime_.device) == SparseTilesMode::Aliased,
++                               true)),
+       aspect_mask(ImageAspectMask(info.format)) {
++    if (OutOfMemory()) {
++        return;
++    }
+     if (original_image.IsUnbacked()) {
+         flags |= VideoCommon::ImageFlagBits::Unbacked;
+         const ImageInfo host_info = TrimmedHostInfo(runtime_.device, info, host_level_offset);
+@@ -4805,6 +4811,12 @@ void Framebuffer::CreateFramebuffer(TextureCacheRuntime& runtime,
+     runtime_ptr = &runtime;
+     render_area.width = (std::min)(render_area.width, width);
+     render_area.height = (std::min)(render_area.height, height);
++    const FramebufferSize size = ClampFramebufferSize(
++        {render_area.width, render_area.height, layers},
++        {runtime.device.GetMaxFramebufferWidth(), runtime.device.GetMaxFramebufferHeight(),
++         runtime.device.GetMaxFramebufferLayers()});
++    render_area = VkExtent2D{.width = size.width, .height = size.height};
++    layers = size.layers;
+ 
+     if (do_resolve_color) {
+         for (size_t index = 0; index < NUM_RT; ++index) {
+@@ -4939,25 +4951,44 @@ void TextureCacheRuntime::TranscodeAstcToBcn(
+         pending = std::move(*reusable);
+         free_transcodes.erase(reusable);
+     } else {
++        const VkImageCreateInfo decode_ci{
++            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
++            .pNext = nullptr,
++            .flags = 0,
++            .imageType = VK_IMAGE_TYPE_2D,
++            .format = DecodeFormat,
++            .extent = {width, height, 1},
++            .mipLevels = levels,
++            .arrayLayers = layers,
++            .samples = VK_SAMPLE_COUNT_1_BIT,
++            .tiling = VK_IMAGE_TILING_OPTIMAL,
++            .usage = VK_IMAGE_USAGE_STORAGE_BIT,
++            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
++            .queueFamilyIndexCount = 0,
++            .pQueueFamilyIndices = nullptr,
++            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
++        };
++        vk::Image decode = memory_allocator.TryCreateImage(decode_ci, true);
++        if (!decode && !free_transcodes.empty()) {
++            // The GPU is done with these: their memory goes back to the driver now.
++            free_transcodes.clear();
++            decode = memory_allocator.TryCreateImage(decode_ci, true);
++        }
++        if (!decode) {
++            static u32 logged{};
++            if (logged++ < 32) {
++                LOG_ERROR(Render_Vulkan,
++                          "No memory to decode ASTC image {:#x} ({}x{}, {} levels); uploading it "
++                          "again when it is next used",
++                          image.gpu_addr, width, height, levels);
++            }
++            image.flags |= VideoCommon::ImageFlagBits::CpuModified;
++            TransitionImageLayout(image);
++            return;
++        }
+         pending = PendingTranscode{
+             .tick = 0,
+-            .image = memory_allocator.CreateImage(VkImageCreateInfo{
+-                .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+-                .pNext = nullptr,
+-                .flags = 0,
+-                .imageType = VK_IMAGE_TYPE_2D,
+-                .format = DecodeFormat,
+-                .extent = {width, height, 1},
+-                .mipLevels = levels,
+-                .arrayLayers = layers,
+-                .samples = VK_SAMPLE_COUNT_1_BIT,
+-                .tiling = VK_IMAGE_TILING_OPTIMAL,
+-                .usage = VK_IMAGE_USAGE_STORAGE_BIT,
+-                .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+-                .queueFamilyIndexCount = 0,
+-                .pQueueFamilyIndices = nullptr,
+-                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+-            }, true),
++            .image = std::move(decode),
+             .views = {},
+             .width = width,
+             .height = height,
+diff --git a/src/video_core/renderer_vulkan/vk_texture_cache.h b/src/video_core/renderer_vulkan/vk_texture_cache.h
+index 49dd837a42..24e16ecede 100644
+--- a/src/video_core/renderer_vulkan/vk_texture_cache.h
++++ b/src/video_core/renderer_vulkan/vk_texture_cache.h
+@@ -117,6 +117,10 @@ public:
+         return memory_allocator.MemoryPressureEvents();
+     }
+ 
++    u32 FailedImages() const noexcept {
++        return memory_allocator.FailedImages();
++    }
++
+     void LogMemoryStatistics() const;
+ 
+     /// True when ASTC is re-compressed to BC3 and opaque images may use BC1 instead.
+@@ -476,6 +480,11 @@ public:
+     Image(Image&&) = default;
+     Image& operator=(Image&&) = default;
+ 
++    /// No memory was left to make it: the texture cache drops it instead of using it.
++    [[nodiscard]] bool OutOfMemory() const noexcept {
++        return !original_image && info.type != VideoCommon::ImageType::Buffer;
++    }
++
+     void UploadMemory(VkBuffer buffer, VkDeviceSize offset,
+                       std::span<const VideoCommon::BufferImageCopy> copies);
+ 
 diff --git a/src/video_core/texture_cache/texture_cache.h b/src/video_core/texture_cache/texture_cache.h
-index 917e5e688b..d14b760461 100644
+index 917e5e688b..75cbbdfb4b 100644
 --- a/src/video_core/texture_cache/texture_cache.h
 +++ b/src/video_core/texture_cache/texture_cache.h
-@@ -272,6 +272,12 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
+@@ -54,6 +54,9 @@ using namespace Common::Literals;
+ template <class P>
+ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManager& device_memory_)
+     : runtime{runtime_}, device_memory{device_memory_} {
++    debug_stats = std::getenv("EDEN_NX2_TC_LOG") != nullptr &&
++                  Common::Log::IsLevelEnabled(Common::Log::Class::HW_GPU, Common::Log::Level::Debug);
++
+     // Configure null sampler
+     TSCEntry sampler_descriptor{};
+     sampler_descriptor.min_filter.Assign(Tegra::Texture::TextureFilter::Linear);
+@@ -131,15 +134,16 @@ TextureCache<P>::TextureCache(Runtime& runtime_, Tegra::MaxwellDeviceMemoryManag
+ }
+ 
+ template <class P>
+-void TextureCache<P>::RunGarbageCollector() {
++void TextureCache<P>::RunGarbageCollector(bool out_of_memory) {
+     bool high_priority_mode = false;
+     bool aggressive_mode = false;
+     bool evict_old_costly = false;
+     u64 ticks_to_destroy = 0;
+     size_t num_iterations = 0;
+     const auto Configure = [&](bool allow_aggressive) {
+-        high_priority_mode = total_used_memory >= expected_memory;
+-        aggressive_mode = allow_aggressive && total_used_memory >= critical_memory;
++        high_priority_mode = out_of_memory || total_used_memory >= expected_memory;
++        aggressive_mode =
++            allow_aggressive && (out_of_memory || total_used_memory >= critical_memory);
+         ticks_to_destroy = aggressive_mode ? 10ULL : high_priority_mode ? 25ULL : 50ULL;
+         // EDEN_NX2_TC_MIN_AGE=<frames>: never evict images used more recently (thrash tests).
+         static const u64 min_age = [] {
+@@ -150,7 +154,7 @@ void TextureCache<P>::RunGarbageCollector() {
+         num_iterations = aggressive_mode ? 40 : (high_priority_mode ? 20 : 10);
+     };
+     const auto Cleanup = [this, &num_iterations, &high_priority_mode, &aggressive_mode,
+-                          &evict_old_costly](ImageId image_id) {
++                          &evict_old_costly, out_of_memory](ImageId image_id) {
+         if (num_iterations == 0) {
+             return true;
+         }
+@@ -178,6 +182,9 @@ void TextureCache<P>::RunGarbageCollector() {
+         ++(True(image.flags & ImageFlagBits::CostlyLoad) ? gc_costly_deletes : gc_deletes);
+         UnregisterImage(image_id);
+         DeleteImage(image_id, image.scale_tick > frame_tick + 5);
++        if (out_of_memory) {
++            return false;
++        }
+         if (aggressive_mode && total_used_memory < critical_memory) {
+             num_iterations >>= 2;
+             aggressive_mode = false;
+@@ -249,7 +256,7 @@ void TextureCache<P>::RunGarbageCollector() {
+         evict_old_costly = false;
+     }
+     Collect();
+-    if (total_used_memory >= critical_memory) {
++    if (out_of_memory || total_used_memory >= critical_memory) {
+         Configure(true);
+         Collect();
+     }
+@@ -272,6 +279,12 @@ void TextureCache<P>::ApplyThresholdOverrides(bool log) {
              *target = std::strtoull(value, nullptr, 10) << 20;
          }
      }
@@ -1658,6 +2582,262 @@ index 917e5e688b..d14b760461 100644
      if (log) {
          LOG_INFO(HW_GPU, "Texture cache thresholds: expected {} MiB, critical {} MiB, minimum {} MiB",
                   expected_memory >> 20, critical_memory >> 20, minimum_memory >> 20);
+@@ -450,8 +463,24 @@ void TextureCache<P>::TickFrame() {
+         gc_deletes = gc_costly_deletes = gc_download_deletes = async_decodes_queued = 0;
+         images_created = images_deleted = 0;
+     }
+-    if (total_used_memory > minimum_memory) {
+-        RunGarbageCollector();
++    // An image that could not be made at all: the driver is out of memory whatever the counts
++    // say, so collect as at the critical threshold.
++    bool out_of_memory = false;
++    if constexpr (requires { runtime.FailedImages(); }) {
++        const u32 failed = runtime.FailedImages();
++        out_of_memory = failed != seen_failed_images;
++        seen_failed_images = failed;
++    }
++    if (out_of_memory || total_used_memory > minimum_memory) {
++        RunGarbageCollector(out_of_memory);
++    }
++    if (out_of_memory) {
++        // Textures left out for lack of memory are made again on their next read, once a frame
++        // while images keep failing.
++        for (size_t c : active_channel_ids) {
++            channel_storage[c].graphics_image_table.Invalidate();
++            channel_storage[c].compute_image_table.Invalidate();
++        }
+     }
+     sentenced_images.Tick();
+     sentenced_image_index = (sentenced_image_index + 1) % TICKS_TO_DESTROY;
+@@ -883,7 +912,22 @@ ImageViewId TextureCache<P>::VisitImageView(u32 index, bool compute) {
+         if (IsValidEntry(*gpu_memory, descriptor)) {
+             const auto [pair, is_new_tc] = channel_state->image_views.try_emplace(descriptor);
+             if (is_new_tc) {
++                const auto failed_images = [&]() -> u32 {
++                    if constexpr (requires { runtime.FailedImages(); }) {
++                        return runtime.FailedImages();
++                    } else {
++                        return 0;
++                    }
++                };
++                const u32 failed_before = failed_images();
+                 pair->second = CreateImageView(descriptor);
++                if (pair->second == NULL_IMAGE_VIEW_ID && failed_images() != failed_before) {
++                    // No memory for its image: TickFrame invalidates the table after collecting,
++                    // and the descriptor's next read makes the image again.
++                    channel_state->image_views.erase(pair);
++                    table.bound_ids[index] = NULL_IMAGE_VIEW_ID;
++                    return NULL_IMAGE_VIEW_ID;
++                }
+                 if (pair->second != NULL_IMAGE_VIEW_ID) {
+                     image_view_descriptors[pair->second].emplace_back(current_channel_id,
+                                                                       descriptor);
+@@ -2556,6 +2600,9 @@ ImageId TextureCache<P>::InsertImage(const ImageInfo& info, GPUVAddr gpu_addr,
+                  static_cast<u32>(info.format), info.block.width, info.block.height, info.block.depth);
+     }
+     const ImageId image_id = JoinImages(storage_info, gpu_addr, *cpu_addr);
++    if (!image_id) {
++        return image_id;
++    }
+     const Image& image = slot_images[image_id];
+     // Using "image.gpu_addr" instead of "gpu_addr" is important because it might be different
+     const auto [it, is_new] = image_allocs_table.try_emplace(image.gpu_addr);
+@@ -2678,6 +2725,20 @@ ImageId TextureCache<P>::JoinImages(const ImageInfo& info, GPUVAddr gpu_addr, DA
+         }
+     }
+     const ImageId new_image_id = slot_images.insert(runtime, new_info, gpu_addr, cpu_addr);
++    if constexpr (requires(const Image& image) { image.OutOfMemory(); }) {
++        if (slot_images[new_image_id].OutOfMemory()) {
++            // Left out of the cache: lookups see no image (a null view) and make it again once
++            // the collector has freed memory.
++            slot_images.erase(new_image_id);
++            static u32 logged{};
++            if (logged++ < 32) {
++                LOG_ERROR(HW_GPU, "No memory for the {}x{}x{} image at {:#x} (format {}); skipping it",
++                          new_info.size.width, new_info.size.height, new_info.size.depth, gpu_addr,
++                          static_cast<u32>(new_info.format));
++            }
++            return ImageId{};
++        }
++    }
+     Image& new_image = slot_images[new_image_id];
+ 
+     new_image.allocation_tick = frame_tick;
+@@ -2923,6 +2984,9 @@ std::optional<typename TextureCache<P>::BlitImages> TextureCache<P>::GetBlitImag
+             dst_id = InsertImage(dst_info, dst_addr, RelaxedOptions{});
+         }
+     } while (has_deleted_images);
++    if (!src_id || !dst_id) {
++        return std::nullopt;
++    }
+     const ImageBase& src_image = slot_images[src_id];
+     const ImageBase& dst_image = slot_images[dst_id];
+     const bool native_bgr = runtime.HasNativeBgr();
+@@ -2938,6 +3002,9 @@ std::optional<typename TextureCache<P>::BlitImages> TextureCache<P>::GetBlitImag
+             src_id = FindOrInsertImage(src_info, src_addr, RelaxedOptions{});
+             dst_id = FindOrInsertImage(dst_info, dst_addr, RelaxedOptions{});
+         } while (has_deleted_images);
++        if (!src_id || !dst_id) {
++            return std::nullopt;
++        }
+     }
+     return {BlitImages{
+         .dst_id = dst_id,
+diff --git a/src/video_core/texture_cache/texture_cache_base.h b/src/video_core/texture_cache/texture_cache_base.h
+index 87d0d7971f..a0246a16c7 100644
+--- a/src/video_core/texture_cache/texture_cache_base.h
++++ b/src/video_core/texture_cache/texture_cache_base.h
+@@ -137,6 +137,7 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
+     u64 native_expected_memory{};
+     u64 budget_check_frames{};
+     u32 seen_pressure_events{};   ///< Allocator pressure events already answered
++    u32 seen_failed_images{};     ///< Images the allocator could not make, already collected for
+     u64 pressure_margin{};        ///< Extra room under the budget after images did not fit
+     u64 pressure_quiet_frames{};  ///< Frames since the last such image
+     u64 slack_margin{};           ///< Extra room for allocator block space the driver counts as used
+@@ -145,7 +146,7 @@ class TextureCache : public VideoCommon::ChannelSetupCaches<TextureCacheChannelI
+     std::vector<u8> astc_scan_buffer;
+     u64 images_deleted{};
+     std::map<u64, std::pair<u32, GPUVAddr>> created_shapes;
+-    bool debug_stats{true}; ///< Collect what only the debug statistics lines use
++    bool debug_stats{}; ///< Collect what only the debug statistics lines use
+ 
+     static constexpr s64 DEFAULT_EXPECTED_MEMORY = 1_GiB + 125_MiB;
+     static constexpr s64 DEFAULT_CRITICAL_MEMORY = 1_GiB + 625_MiB;
+@@ -385,7 +386,7 @@ private:
+     void OnGPUASRegister(size_t map_id) final override;
+ 
+     /// Runs the Garbage Collector.
+-    void RunGarbageCollector();
++    void RunGarbageCollector(bool out_of_memory);
+ 
+     /// Find or create an image view in the guest descriptor table
+     ImageViewId VisitImageView(u32 index, bool compute);
+diff --git a/src/video_core/vulkan_common/vulkan_device.h b/src/video_core/vulkan_common/vulkan_device.h
+index 93a89d124b..82995eb80b 100644
+--- a/src/video_core/vulkan_common/vulkan_device.h
++++ b/src/video_core/vulkan_common/vulkan_device.h
+@@ -422,7 +422,10 @@ public:
+     FN_MAX_LIMIT_ELEM(DescriptorSetStorageBuffersDynamic) \
+     FN_MAX_LIMIT_ELEM(DescriptorSetSampledImages) \
+     FN_MAX_LIMIT_ELEM(DescriptorSetStorageImages) \
+-    FN_MAX_LIMIT_ELEM(DescriptorSetInputAttachments)
++    FN_MAX_LIMIT_ELEM(DescriptorSetInputAttachments) \
++    FN_MAX_LIMIT_ELEM(FramebufferWidth) \
++    FN_MAX_LIMIT_ELEM(FramebufferHeight) \
++    FN_MAX_LIMIT_ELEM(FramebufferLayers)
+ #define FN_MAX_LIMIT_ELEM(name) \
+     u32 GetMax##name() const { return properties.properties.limits.max##name; }
+ FN_MAX_LIMIT_LIST
+diff --git a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+index a0a39abe39..7fd03f4a37 100644
+--- a/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
++++ b/src/video_core/vulkan_common/vulkan_memory_allocator.cpp
+@@ -208,6 +208,22 @@ MemoryAllocator::~MemoryAllocator() = default;
+ 
+ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo &ci, bool dedicated) const
+ {
++    vk::Image image;
++    vk::Check(AllocateImage(ci, dedicated, image));
++    return image;
++}
++
++vk::Image MemoryAllocator::TryCreateImage(const VkImageCreateInfo &ci, bool dedicated) const {
++    vk::Image image;
++    const VkResult result = AllocateImage(ci, dedicated, image);
++    if (result != VK_ERROR_OUT_OF_DEVICE_MEMORY && result != VK_ERROR_OUT_OF_HOST_MEMORY) {
++        vk::Check(result);
++    }
++    return image;
++}
++
++VkResult MemoryAllocator::AllocateImage(const VkImageCreateInfo &ci, bool dedicated,
++                                        vk::Image &image) const {
+     const VmaAllocationCreateInfo alloc_ci = {
+             // Best fit: images freed by the thousand leave holes in the blocks, which new ones
+             // should fill before VMA takes another block.
+@@ -280,15 +296,20 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo &ci, bool dedicat
+                         "unbacked sparse image",
+                         ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
+                         ci.arrayLayers, static_cast<u32>(ci.format));
+-            return sparse;
++            image = std::move(sparse);
++            return VK_SUCCESS;
+         }
+     }
+     if (result != VK_SUCCESS) {
+-        LOG_CRITICAL(Render_Vulkan, "Image {}x{}x{} ({} levels, {} layers, format {}) failed: {}",
+-                     ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
+-                     ci.arrayLayers, static_cast<u32>(ci.format), static_cast<int>(result));
++        failed_images.fetch_add(1, std::memory_order_relaxed);
++        static u32 failed_logged{};
++        if (failed_logged++ < 32) {
++            LOG_ERROR(Render_Vulkan, "Image {}x{}x{} ({} levels, {} layers, format {}) failed: {}",
++                      ci.extent.width, ci.extent.height, ci.extent.depth, ci.mipLevels,
++                      ci.arrayLayers, static_cast<u32>(ci.format), static_cast<int>(result));
++        }
++        return result;
+     }
+-    vk::Check(result);
+ 
+     // Log GPU memory allocation for images
+     if (GPU::Logging::IsActive() &&
+@@ -300,8 +321,9 @@ vk::Image MemoryAllocator::CreateImage(const VkImageCreateInfo &ci, bool dedicat
+         );
+     }
+ 
+-    return vk::Image(handle, ci.usage, *device.GetLogical(), allocator, allocation,
+-                        device.GetDispatchLoader());
++    image = vk::Image(handle, ci.usage, *device.GetLogical(), allocator, allocation,
++                      device.GetDispatchLoader());
++    return VK_SUCCESS;
+ }
+ 
+ vk::Image MemoryAllocator::CreateUnbackedImage(const VkImageCreateInfo &ci, bool aliased) const {
+diff --git a/src/video_core/vulkan_common/vulkan_memory_allocator.h b/src/video_core/vulkan_common/vulkan_memory_allocator.h
+index 8b9e72b3e3..8ab12bcbf2 100644
+--- a/src/video_core/vulkan_common/vulkan_memory_allocator.h
++++ b/src/video_core/vulkan_common/vulkan_memory_allocator.h
+@@ -110,6 +110,9 @@ namespace Vulkan {
+         /// images would otherwise leave holes in the shared blocks).
+         vk::Image CreateImage(const VkImageCreateInfo &ci, bool dedicated = false) const;
+ 
++        /// CreateImage, but a null image instead of an exception when there is no memory for it.
++        vk::Image TryCreateImage(const VkImageCreateInfo &ci, bool dedicated = false) const;
++
+         /// A sparse resident image with nothing bound (reads return zero, writes are dropped), or
+         /// a null image when the device can't make one.
+         /// aliased: its sparse blocks may share memory (VK_IMAGE_CREATE_SPARSE_ALIASED_BIT).
+@@ -133,6 +136,12 @@ namespace Vulkan {
+             return pressure_events.load(std::memory_order_relaxed);
+         }
+ 
++        /// Counts the images that could not be made at all (no memory left anywhere): the
++        /// texture cache collects aggressively when it grows.
++        u32 FailedImages() const noexcept {
++            return failed_images.load(std::memory_order_relaxed);
++        }
++
+         vk::Buffer CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsage usage) const;
+ 
+         vk::Buffer CreateBuffer(const VkBufferCreateInfo &ci, MemoryUsage usage,
+@@ -163,12 +172,16 @@ namespace Vulkan {
+             }
+         }
+ 
++        /// CreateImage's fallbacks; the image is left null when the result is an error.
++        VkResult AllocateImage(const VkImageCreateInfo &ci, bool dedicated, vk::Image &image) const;
++
+         const Device &device;                              ///< Device handle.
+         VmaAllocator allocator;                           ///< VMA allocator.
+         const VkPhysicalDeviceMemoryProperties properties; ///< Physical device memory properties.
+         VkDeviceSize buffer_image_granularity;            ///< Adjacent buffer/image granularity
+         u32 valid_memory_types{~0u};
+         mutable std::atomic<u32> pressure_events{0};
++        mutable std::atomic<u32> failed_images{0};
+         mutable std::mutex buffer_type_mutex;
+         /// Memory type of device-local buffers by usage and flags (CreateBufferInSeparatePool).
+         mutable std::unordered_map<u64, u32> buffer_memory_types;
 diff --git a/src/yuzu/main_window.cpp b/src/yuzu/main_window.cpp
 index fac2e5cc60..dca2a94cc7 100644
 --- a/src/yuzu/main_window.cpp
