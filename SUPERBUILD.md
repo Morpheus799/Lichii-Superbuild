@@ -25,14 +25,13 @@ a stock build as fallback.
 
 - Upstream: `zortos293/Lichii`
 - Branch: `nx2`
-- Base commit: `412c753b3a37a6b1d1459da3052dcff96d807af1` (2026-11-07)
+- Base commit: `32886f755c8f1a08f18b2ed328f4ceef15a5a1d9` (2026-11-07)
 - Upstream `nx2` already contains #303, #287, #314, #224, #273, #284, #290,
   #295, #149, #185, #197, #203, #215, #232, #241, #397, #398, #410, #412,
-  #413, #414, plus #418 (core pinning experiment), #425 (64-byte usage
-  tracking), #429 (32-bit global atomics), #433 (dynamic per-tap offsets),
-  #435 (wrapping address rejection), #438 (macro hand-back), #439 (Turing
-  macro RAM), #442, #443, #444, #482, #485 and #490. Those are not re-applied
-  here.
+  #413, #414, #418, #425, #429, #433, #435, #438, #439, #442, #443, #444,
+  #482, #485, #490, plus #432 (NaN min/max), #436 (QMD release formats),
+  #351 (table-pointer pool binding), #504 (updater), #255/#497 (microphone)
+  and #499 (NUP metadata). Those are not re-applied here.
 - License: GPL-3.0-or-later, inherited from Lichii/Eden/yuzu
 
 ## Branches
@@ -143,6 +142,6 @@ See `tools/superbuild/README.md` for packaging notes.
 `superbuild`.
 
 ```bash
-git checkout 412c753b
+git checkout 32886f75
 git apply patches/superbuild.patch
 ```
