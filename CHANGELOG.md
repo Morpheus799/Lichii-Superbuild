@@ -3,7 +3,7 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
-## 261106-v10
+## v10
 
 - Base: `nx2` `412c753b` — a 43-commit upstream batch including #425 64-byte
   usage tracking, #429 32-bit global atomics, #433 dynamic per-tap offsets,
