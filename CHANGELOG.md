@@ -3,6 +3,21 @@
 All releases are unofficial builds. See the GitHub releases for assets and
 checksums.
 
+## v12
+
+- Base: `nx2` `91d1aada` — upstream #512 device-loss diagnostics, #515 mesh
+  point/line output, #518/#519/#526 clang-cl ThinLTO release builds,
+  #524 `-fno-unswitch-loops` and #537 frame-generation status.
+- Updater now points at this repository: `callme-sy/Lichii-Superbuild`, `vN`
+  tags and `Lichii-vN-<platform>` assets.
+- Carries `capy/oot-hyrule-grass-ab` A/B diagnostics for the OoT Hyrule Field
+  grass regression. Four off-by-default switches, no change to stock behaviour;
+  the full fix remains open upstream as PR #434.
+- Both Windows packages use bundled static FFmpeg.
+- Keeps the OoT recommended-settings prompt, GPU thread wake and the full
+  superbuild fix set.
+- Windows and Linux, standard and PGO.
+
 ## v11
 
 - Base: `nx2` `32886f75` — upstream #351 table-pointer pool binding, #432
